@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vista Trimestral - Cole API</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Calificaciones Trimestrales</h1>
+      <div id="topNav" class="top"></div>
+    </header>
+    <main>
+      <section class="panel">
+        <h2>Filtros operativos</h2>
+        <div class="grid two">
+          <div>
+            <label>Trimestre (1,2,3)</label>
+            <input id="trimestreValue" value="1" />
+          </div>
+          <div>
+            <label>Curso (ej: 1A)</label>
+            <input id="cursoValue" value="1A" />
+          </div>
+          <div>
+            <label>Materia (opcional)</label>
+            <input id="materiaValue" placeholder="Lengua" />
+          </div>
+          <div>
+            <label>Alumno (opcional)</label>
+            <input id="alumnoValue" placeholder="Apellido Nombre" />
+          </div>
+          <div>
+            <label>Limite</label>
+            <input id="limitValue" value="200" />
+          </div>
+        </div>
+        <div class="actions" style="margin-top: 10px">
+          <button class="primary" id="btnBuscar">Consultar Vista Trimestral</button>
+        </div>
+        <p id="status" class="status"></p>
+      </section>
+      <section class="panel">
+        <h2>Respuesta</h2>
+        <pre id="result">{}</pre>
+      </section>
+    </main>
+
+    <script src="/api.js"></script>
+    <script src="/nav.js"></script>
+    <script>
+      renderTopNav('calificaciones-trimestral.html');
+
+      function buildQuery() {
+        const trimestre = document.getElementById('trimestreValue').value.trim();
+        const curso = document.getElementById('cursoValue').value.trim();
+        const materia = document.getElementById('materiaValue').value.trim();
+        const alumno = document.getElementById('alumnoValue').value.trim();
+        const limit = document.getElementById('limitValue').value.trim();
+        const params = new URLSearchParams();
+
+        if (trimestre) params.set('trimestre', trimestre);
+        if (curso) params.set('curso', curso);
+        if (materia) params.set('materia', materia);
+        if (alumno) params.set('alumno', alumno);
+        if (limit) params.set('limit', limit);
+
+        return params.toString();
+      }
+
+      async function run() {
+        const query = buildQuery();
+        const path = `/calificaciones-detalle/vista-trimestral${query ? `?${query}` : ''}`;
+        const { response, payload } = await coleApi.apiRequest('GET', path);
+        coleApi.showStatus('status', `GET ${path} -> ${response.status}`, response.ok);
+        coleApi.showResult('result', payload);
+      }
+
+      document.getElementById('btnBuscar').addEventListener('click', run);
+    </script>
+  </body>
+</html>

@@ -16,6 +16,7 @@ function renderTopNav(activePage) {
     ['evaluaciones.html', 'Evaluaciones'],
     ['calificaciones.html', 'Calificaciones'],
     ['calificaciones-detalle.html', 'CalifDetalle'],
+    ['calificaciones-trimestral.html', 'VistaTrim'],
     ['demo-tablas.html', 'DemoTablas'],
     ['usuarios.html', 'Usuarios'],
     ['log-cambios.html', 'LogCambios']

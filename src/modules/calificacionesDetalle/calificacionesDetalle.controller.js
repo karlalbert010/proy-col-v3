@@ -32,6 +32,22 @@ async function compareCalificacionWithView(req, res, next) {
   }
 }
 
+async function getCalificacionesTrimestralesView(req, res, next) {
+  try {
+    const data = await calificacionesDetalleService.getCalificacionesTrimestralesView({
+      trimestre: req.query.trimestre,
+      curso: req.query.curso,
+      materia: req.query.materia,
+      alumno: req.query.alumno,
+      limit: req.query.limit
+    });
+
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 async function createCalificacionDetalle(req, res, next) {
   try {
     const data = await calificacionesDetalleService.createCalificacionDetalle(req.body);
@@ -72,6 +88,7 @@ module.exports = {
   getCalificacionesDetalle,
   getCalificacionDetalleById,
   compareCalificacionWithView,
+  getCalificacionesTrimestralesView,
   createCalificacionDetalle,
   updateCalificacionDetalle,
   deleteCalificacionDetalle

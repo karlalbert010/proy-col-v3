@@ -356,11 +356,106 @@ async function compareCalificacionWithView(calificacionIdValue) {
   };
 }
 
+function parseOptionalTrimmedText(value) {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  const text = String(value).trim();
+  return text === '' ? null : text;
+}
+
+function parseOptionalTrimestre(value) {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  const trimestre = Number(value);
+  if (!Number.isInteger(trimestre) || trimestre < 1 || trimestre > 3) {
+    throw createHttpError('El parametro trimestre debe ser 1, 2 o 3.', 400);
+  }
+
+  return trimestre;
+}
+
+function parseLimit(value) {
+  if (value === undefined || value === null || value === '') {
+    return 300;
+  }
+
+  const limit = Number(value);
+  if (!Number.isInteger(limit) || limit <= 0) {
+    throw createHttpError('El parametro limit debe ser entero positivo.', 400);
+  }
+
+  return Math.min(limit, 1000);
+}
+
+async function getCalificacionesTrimestralesView({ trimestre, curso, materia, alumno, limit }) {
+  const trimestreValue = parseOptionalTrimestre(trimestre);
+  const cursoValue = parseOptionalTrimmedText(curso);
+  const materiaValue = parseOptionalTrimmedText(materia);
+  const alumnoValue = parseOptionalTrimmedText(alumno);
+  const limitValue = parseLimit(limit);
+
+  let sql = `
+    SELECT
+      trimestre,
+      anioLectivo,
+      Curso,
+      Apellidos,
+      Nombres,
+      Materia,
+      notaOrientadora,
+      notaMes1,
+      notaMes2,
+      notaMes3,
+      promTrimestre,
+      recuperatorio,
+      notaFinalTrimestre
+    FROM vw_calificaciones_trimestrales_operativa
+    WHERE 1=1
+  `;
+
+  const params = [];
+
+  if (trimestreValue !== null) {
+    sql += ' AND trimestre = ?';
+    params.push(trimestreValue);
+  }
+
+  if (cursoValue !== null) {
+    sql += ' AND Curso = ?';
+    params.push(cursoValue);
+  }
+
+  if (materiaValue !== null) {
+    sql += ' AND Materia = ?';
+    params.push(materiaValue);
+  }
+
+  if (alumnoValue !== null) {
+    sql += " AND CONCAT(Apellidos, ' ', Nombres) LIKE ?";
+    params.push(`%${alumnoValue}%`);
+  }
+
+  sql += ' ORDER BY trimestre DESC, Curso DESC, Apellidos DESC, Nombres DESC, Materia DESC LIMIT ?';
+  params.push(limitValue);
+
+  const rows = await prisma.$queryRawUnsafe(sql, ...params);
+  return rows.map((row) =>
+    Object.fromEntries(
+      Object.entries(row).map(([key, value]) => [key, typeof value === 'bigint' ? Number(value) : value])
+    )
+  );
+}
+
 module.exports = {
   getCalificacionesDetalle,
   getCalificacionDetalleById,
   createCalificacionDetalle,
   updateCalificacionDetalle,
   deleteCalificacionDetalle,
-  compareCalificacionWithView
+  compareCalificacionWithView,
+  getCalificacionesTrimestralesView
 };

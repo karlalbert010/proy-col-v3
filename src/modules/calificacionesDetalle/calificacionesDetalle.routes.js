@@ -80,6 +80,7 @@ async function resolveCalificacionAnioIdFromDetalleId(req, _res, next) {
 
 router.get('/', authMiddleware, roleMiddleware('ADMIN', 'DOCENTE', 'DIRECTIVO'), calificacionesDetalleController.getCalificacionesDetalle);
 router.get('/comparar-view', authMiddleware, roleMiddleware('ADMIN', 'DOCENTE', 'DIRECTIVO'), calificacionesDetalleController.compareCalificacionWithView);
+router.get('/vista-trimestral', authMiddleware, roleMiddleware('ADMIN', 'DOCENTE', 'DIRECTIVO'), calificacionesDetalleController.getCalificacionesTrimestralesView);
 router.get('/:id', authMiddleware, roleMiddleware('ADMIN', 'DOCENTE', 'DIRECTIVO'), calificacionesDetalleController.getCalificacionDetalleById);
 router.post('/', authMiddleware, roleMiddleware('ADMIN', 'DOCENTE'), resolveCalificacionAnioIdFromCalificacionId, estadoMiddleware('calificaciones'), calificacionesDetalleController.createCalificacionDetalle);
 router.put('/:id', authMiddleware, roleMiddleware('ADMIN', 'DOCENTE'), resolveCalificacionAnioIdFromDetalleId, estadoMiddleware('calificaciones'), calificacionesDetalleController.updateCalificacionDetalle);

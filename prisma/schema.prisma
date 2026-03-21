@@ -133,20 +133,26 @@ model CalificacionDetalle {
   nota1erTrimMes1  Float?
   nota1erTrimMes2  Float?
   nota1erTrimMes3  Float?
+  notaFinal1erTrim Float?
   recup1erTrim     Float?
   observ1erTrim    String? @db.Text
   notaOrint2doTrim Float?
   nota2doTrimMes1  Float?
   nota2doTrimMes2  Float?
   nota2doTrimMes3  Float?
+  notaFinal2doTrim Float?
   recup2doTrim     Float?
   observ2doTrim    String? @db.Text
   notaOrint3erTrim Float?
   nota3erTrimMes1  Float?
   nota3erTrimMes2  Float?
   nota3erTrimMes3  Float?
+  notaFinal3erTrim Float?
   recup3erTrim     Float?
   observ3erTrim    String? @db.Text
+  promMensualAnual Float?
+  recupAnual       Float?
+  promAnualCuantit Float?
   // Campos para bimestrales
   notaBim1Mes1     Float?
   notaBim1Mes2     Float?

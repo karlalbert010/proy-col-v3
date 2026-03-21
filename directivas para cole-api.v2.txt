@@ -1,0 +1,209 @@
+directivas para cole-api.v2
+ATENCIÓN CODEX:
+Este sistema NO debe diseñarse como un CRUD genérico de base de datos.
+Reglas obligatorias:
+
+NO mostrar tablas completas innecesariamente.
+SIEMPRE priorizar vistas operativas (lo que el usuario necesita hacer).
+El sistema está orientado a:
+operadores administrativos
+profesores
+La navegación debe estar optimizada por frecuencia de uso.
+Evitar pantallas con exceso de datos (overfetching visual).
+Cada vista debe tener un propósito claro (acción).
+Los CRUD completos solo deben existir en módulos de gestión, no en operación diaria.
+
+El diseño debe ser tipo sistema profesional (ERP educativo), no un panel técnico.
+
+🌳 🧩 ÁRBOL DE NAVEGACIÓN (OPTIMIZADO)
+🏠 Dashboard
+
+📌 OPERACIÓN DIARIA
+   ├── Asistencia
+   │     ├── Seleccionar curso
+   │     └── Cargar asistencia
+   │
+   ├── Calificaciones
+   │     ├── Seleccionar curso/materia
+   │     └── Carga tipo grilla
+   │
+   └── Mis cursos
+         └── Vista resumen por curso
+
+📊 CONTROL
+   ├── Estado de carga de notas
+   ├── Cumplimiento de plazos
+   └── Alertas
+
+🎓 ACADÉMICO
+   ├── Alumnos
+   │     ├── Listado (filtrado)
+   │     └── Detalle alumno
+   │
+   ├── Cursos
+   │     ├── Listado
+   │     └── Detalle curso
+   │
+   ├── Materias
+   └── Profesores
+
+💰 ADMINISTRACIÓN
+   ├── Matrícula
+   └── Estado financiero (resumen)
+
+⚙️ CONFIGURACIÓN
+   ├── Ciclo lectivo
+   └── Parámetros
+🧩 📺 VIEWS NECESARIAS (DEFINIDAS)
+🏠 Dashboard
+
+Objetivo: control rápido
+
+Contenido:
+
+alertas
+cursos atrasados
+pendientes
+actividad del día
+📅 Asistencia
+Vista 1: Selección
+curso
+fecha
+Vista 2: Carga
+lista alumnos
+presente/ausente
+botón rápido “todos presentes”
+📝 Calificaciones
+Vista 1: Selección
+curso
+materia
+evaluación
+Vista 2: Grilla editable
+alumnos
+notas
+estado (color)
+📚 Mis cursos
+lista simple
+estado de cada curso
+acceso rápido
+📊 Estado de carga
+profesor
+curso
+% completado
+semáforo
+👨‍🎓 Alumnos
+Listado (IMPORTANTE)
+búsqueda
+filtros
+NO mostrar todo
+Detalle
+datos básicos
+cursos
+estado
+🏫 Cursos
+lista
+detalle:
+alumnos
+materias
+estado académico
+💰 Matrícula
+estado por alumno
+resumen (NO contabilidad completa)
+🧠 🎯 REGLAS UX (OBLIGATORIAS)
+✔ 1. Mostrar SOLO lo necesario
+
+❌ NO:
+
+30 columnas
+datos técnicos
+
+✔ SI:
+
+nombre
+estado
+acción
+✔ 2. Acción primero, datos después
+
+Ejemplo:
+👉 botón "Cargar notas" visible siempre
+
+✔ 3. Filtros obligatorios
+curso
+año
+profesor
+✔ 4. Estados visuales
+🟢 OK
+🟡 Pendiente
+🔴 Atrasado
+✔ 5. Máximo 3 clics
+🛠️ ⚙️ DIRECTIVAS PARA CODEX (DESARROLLO)
+🧱 Estructura frontend
+src/
+ ├── views/
+ ├── components/
+ ├── services/
+ ├── store/
+ └── router/
+📁 Views (una por pantalla)
+views/
+ ├── dashboard/
+ ├── asistencia/
+ ├── calificaciones/
+ ├── cursos/
+ ├── alumnos/
+ ├── control/
+🧩 Componentes reutilizables
+components/
+ ├── TableSimple
+ ├── FilterBar
+ ├── StatusBadge
+ ├── ActionButtons
+ ├── EditableGrid
+🔌 Servicios (API)
+services/
+ ├── api.js
+ ├── alumnos.service.js
+ ├── cursos.service.js
+ ├── calificaciones.service.js
+🧠 Estado global
+usuario
+curso seleccionado
+alertas
+📡 🔄 RELACIÓN CON BACKEND
+
+Cada view define endpoints:
+
+Ejemplo:
+
+GET /cursos?profesor_id=
+GET /alumnos?curso_id=
+POST /calificaciones
+GET /estado-carga
+⚠️ ERRORES QUE CODEX DEBE EVITAR
+
+❌ CRUD genérico tipo tabla SQL
+❌ mostrar todos los campos
+❌ pantallas sin objetivo
+❌ navegación confusa
+❌ no usar filtros
+
+🔥 💡 DECISIÓN ARQUITECTÓNICA CLAVE
+
+👉 Hay 2 tipos de vistas:
+
+🟢 Operativas (PRIORIDAD)
+asistencia
+notas
+🔵 Gestión (secundarias)
+alumnos
+cursos
+
+👉 Esto define el menú
+
+🚀 CONCLUSIÓN
+
+✔ Primero: definir views (ya hecho)
+✔ Segundo: desarrollar frontend
+✔ Navegación basada en uso real
+✔ UX simple y rápida
+✔ Backend alineado
