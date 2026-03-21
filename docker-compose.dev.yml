@@ -1,0 +1,15 @@
+﻿services:
+  api:
+    build:
+      context: .
+      target: development
+    environment:
+      NODE_ENV: development
+    command: npm run dev
+    volumes:
+      - .:/app
+      - /app/node_modules
+
+  db:
+    ports:
+      - "${DB_PORT:-3307}:3306"

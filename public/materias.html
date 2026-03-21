@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Materias - Cole API</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Materias</h1>
+      <div id="topNav" class="top"></div>
+    </header>
+    <main>
+      <section class="panel">
+        <h2>CRUD /materias</h2>
+        <div class="grid two">
+          <div><label>ID</label><input id="idValue" value="1" /></div>
+          <div><label>Filtro anio (GET)</label><input id="anioValue" placeholder="2025" /></div>
+          <div>
+            <label>Filtro activa (GET)</label>
+            <select id="activaValue">
+              <option value="">(todas)</option>
+              <option value="true">true</option>
+              <option value="false">false</option>
+            </select>
+          </div>
+        </div>
+        <label style="margin-top: 10px">Body JSON</label>
+        <textarea id="bodyValue">{
+  "codigoBase": "MAT",
+  "descripcion": "Matematica",
+  "activa": true
+}</textarea>
+        <div class="actions" style="margin-top: 10px">
+          <button id="btnGetAll">GET /materias</button>
+          <button id="btnGetById">GET /materias/:id</button>
+          <button class="primary" id="btnCreate">POST /materias</button>
+          <button id="btnUpdate">PUT /materias/:id</button>
+          <button id="btnDelete">DELETE /materias/:id</button>
+        </div>
+        <p id="status" class="status"></p>
+      </section>
+      <section class="panel"><h2>Respuesta</h2><pre id="result">{}</pre></section>
+    </main>
+    <script src="/api.js"></script><script src="/nav.js"></script>
+    <script>
+      renderTopNav('materias.html');
+      function getIdValue() { return document.getElementById('idValue').value.trim(); }
+      function getAnioValue() { return document.getElementById('anioValue').value.trim(); }
+      function getActivaValue() { return document.getElementById('activaValue').value.trim(); }
+      function getQuery() {
+        const params = new URLSearchParams();
+        const anio = getAnioValue();
+        const activa = getActivaValue();
+        if (anio) params.set('anio', anio);
+        if (activa) params.set('activa', activa);
+        const query = params.toString();
+        return query ? `?${query}` : '';
+      }
+      function getBodyValue() { return coleApi.parseBody(document.getElementById('bodyValue').value); }
+      async function run(method, path, payload) {
+        const { response, payload: data } = await coleApi.apiRequest(method, path, payload);
+        coleApi.showStatus('status', `${method} ${path} -> ${response.status}`, response.ok);
+        coleApi.showResult('result', data);
+      }
+
+      document.getElementById('btnGetAll').addEventListener('click', () => run('GET', `/materias${getQuery()}`));
+      document.getElementById('btnGetById').addEventListener('click', () => run('GET', `/materias/${getIdValue()}`));
+      document.getElementById('btnCreate').addEventListener('click', () => run('POST', '/materias', getBodyValue()));
+      document.getElementById('btnUpdate').addEventListener('click', () => run('PUT', `/materias/${getIdValue()}`, getBodyValue()));
+      document.getElementById('btnDelete').addEventListener('click', () => run('DELETE', `/materias/${getIdValue()}`));
+    </script>
+  </body>
+</html>

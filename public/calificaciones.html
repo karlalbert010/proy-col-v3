@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Calificaciones - Cole API</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Calificaciones</h1>
+      <div id="topNav" class="top"></div>
+    </header>
+    <main>
+      <section class="panel">
+        <h2>CRUD /calificaciones</h2>
+        <div class="grid two">
+          <div><label>ID</label><input id="idValue" value="1" /></div>
+          <div><label>Query (ej: ?anio=2026&curso=1)</label><input id="queryValue" placeholder="?anio=2026" /></div>
+        </div>
+        <label style="margin-top: 10px">Body JSON</label>
+        <textarea id="bodyValue">{
+  "matriculaId": 1,
+  "materiaAnualId": 1,
+  "periodoId": 1,
+  "nota": 8
+}</textarea>
+        <div class="actions" style="margin-top: 10px">
+          <button id="btnGetAll">GET /calificaciones</button>
+          <button id="btnGetById">GET /calificaciones/:id</button>
+          <button class="primary" id="btnCreate">POST /calificaciones</button>
+          <button id="btnUpdate">PUT /calificaciones/:id</button>
+          <button id="btnDelete">DELETE /calificaciones/:id</button>
+          <button id="btnGoDetalle">Ir a CRUD CalifDetalle</button>
+        </div>
+        <p id="status" class="status"></p>
+      </section>
+      <section class="panel">
+        <h2>Importador y Resumen</h2>
+        <div class="grid two">
+          <div><label>Anio ID (importador)</label><input id="importAnioId" value="1" /></div>
+          <div><label>Dry Run (true/false)</label><input id="importDryRun" value="true" /></div>
+          <div><label>Source Schema</label><input id="importSchema" value="calif_alum" /></div>
+          <div><label>Source Table</label><input id="importTable" value="calific_1ro_6to_2025" /></div>
+        </div>
+        <div class="actions" style="margin-top: 10px">
+          <button class="primary" id="btnImport">POST /calificaciones/importar-calif-alum</button>
+          <button id="btnResumen">GET /calificaciones/resumen</button>
+        </div>
+        <p id="statusImport" class="status"></p>
+      </section>
+      <section class="panel"><h2>Respuesta</h2><pre id="result">{}</pre></section>
+    </main>
+    <script src="/api.js"></script><script src="/nav.js"></script>
+    <script>
+      renderTopNav('calificaciones.html');
+      function getIdValue() { return document.getElementById('idValue').value.trim(); }
+      function getQueryValue() { return document.getElementById('queryValue').value.trim(); }
+      function getBodyValue() { return coleApi.parseBody(document.getElementById('bodyValue').value); }
+      function getImportBody() {
+        const anioId = Number(document.getElementById('importAnioId').value.trim());
+        const dryRunRaw = document.getElementById('importDryRun').value.trim().toLowerCase();
+        const sourceSchema = document.getElementById('importSchema').value.trim();
+        const sourceTable = document.getElementById('importTable').value.trim();
+
+        return {
+          anioId,
+          dryRun: dryRunRaw === 'true' || dryRunRaw === '1' || dryRunRaw === 'si',
+          sourceSchema,
+          sourceTable
+        };
+      }
+
+      async function run(method, path, payload) {
+        const { response, payload: data } = await coleApi.apiRequest(method, path, payload);
+        coleApi.showStatus('status', `${method} ${path} -> ${response.status}`, response.ok);
+        coleApi.showResult('result', data);
+      }
+
+      async function runImport() {
+        const body = getImportBody();
+        const { response, payload: data } = await coleApi.apiRequest('POST', '/calificaciones/importar-calif-alum', body);
+        coleApi.showStatus('statusImport', `POST /calificaciones/importar-calif-alum -> ${response.status}`, response.ok);
+        coleApi.showResult('result', data);
+      }
+
+      async function runResumen() {
+        const { response, payload: data } = await coleApi.apiRequest('GET', `/calificaciones/resumen${getQueryValue()}`);
+        coleApi.showStatus('statusImport', `GET /calificaciones/resumen -> ${response.status}`, response.ok);
+        coleApi.showResult('result', data);
+      }
+
+      document.getElementById('btnGetAll').addEventListener('click', () => run('GET', `/calificaciones${getQueryValue()}`));
+      document.getElementById('btnGetById').addEventListener('click', () => run('GET', `/calificaciones/${getIdValue()}`));
+      document.getElementById('btnCreate').addEventListener('click', () => run('POST', '/calificaciones', getBodyValue()));
+      document.getElementById('btnUpdate').addEventListener('click', () => run('PUT', `/calificaciones/${getIdValue()}`, getBodyValue()));
+      document.getElementById('btnDelete').addEventListener('click', () => run('DELETE', `/calificaciones/${getIdValue()}`));
+      document.getElementById('btnImport').addEventListener('click', runImport);
+      document.getElementById('btnResumen').addEventListener('click', runResumen);
+      document.getElementById('btnGoDetalle').addEventListener('click', () => {
+        window.location.href = '/calificaciones-detalle.html';
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,254 @@
+1️⃣ OBJETIVO
+
+Desarrollar una API REST para sistema de gestión académica escolar.
+
+Stack obligatorio:
+
+Node.js 20
+
+Express
+
+Prisma ORM
+
+MySQL 8
+
+JWT para autenticación
+
+Docker (imágenes estables)
+
+Base de datos ya definida en schema.prisma.
+
+2️⃣ REGLAS INSTITUCIONALES OBLIGATORIAS
+
+Solo puede existir un AnioLectivo con estado = ACTIVO.
+
+No se puede modificar estructura (Curso, MateriaAnual, Periodo) si el año está ACTIVO o CERRADO.
+
+No se puede cargar calificaciones si el año está BORRADOR o CERRADO.
+
+No se puede cerrar un año si existen calificaciones faltantes.
+
+Solo ADMIN puede:
+
+Crear años
+
+Cambiar estado de año
+
+Modificar estructura
+
+DOCENTE solo puede:
+
+Consultar alumnos
+
+Cargar y modificar calificaciones
+
+DIRECTIVO solo puede:
+
+Consultar información
+
+Toda modificación (UPDATE o DELETE) debe registrarse en LogCambio.
+
+3️⃣ AUTENTICACIÓN
+
+Sistema JWT.
+
+Endpoint:
+
+POST /auth/login
+
+Body:
+
+{
+  "username": "",
+  "password": ""
+}
+
+Devuelve:
+
+{
+  "token": "JWT"
+}
+
+Middleware obligatorio:
+
+Verificar token
+
+Verificar rol según endpoint
+
+4️⃣ ENDPOINTS REQUERIDOS
+🔵 Años Lectivos
+
+GET /anios
+POST /anios (ADMIN)
+PATCH /anios/:id/estado (ADMIN)
+
+Validación:
+
+No permitir dos años ACTIVO.
+
+🔵 Alumnos
+
+GET /alumnos
+POST /alumnos (ADMIN)
+PUT /alumnos/:id (ADMIN)
+
+Validación:
+
+DNI único.
+
+🔵 Cursos
+
+GET /cursos?anio=2026
+POST /cursos (ADMIN)
+
+Validación:
+
+Curso pertenece a un año.
+
+🔵 Materias
+
+GET /materias
+POST /materias (ADMIN)
+
+🔵 Materias Anuales
+
+GET /materias-anuales?anio=2026
+POST /materias-anuales (ADMIN)
+
+Validación:
+
+UNIQUE (materiaId, anioId)
+
+No modificar si año ACTIVO.
+
+🔵 Periodos
+
+GET /periodos?anio=2026
+POST /periodos (ADMIN)
+
+Validación:
+
+UNIQUE (anioId, orden)
+
+🔵 Matrículas
+
+POST /matriculas (ADMIN)
+
+Validación:
+
+No duplicar alumno en mismo curso.
+
+🔵 Calificaciones
+
+GET /calificaciones?anio=2026&curso=3A
+POST /calificaciones (DOCENTE)
+PUT /calificaciones/:id (DOCENTE)
+
+Validación:
+
+Año debe estar ACTIVO.
+
+No duplicar combinación:
+(matriculaId + materiaAnualId + periodoId)
+
+5️⃣ AUDITORÍA
+
+Registrar en LogCambio:
+
+UPDATE
+
+DELETE
+
+Cambios de estado
+
+Guardar:
+
+usuario
+
+tablaAfectada
+
+idRegistro
+
+tipoOperacion
+
+valorAnterior
+
+valorNuevo
+
+fecha automática
+
+No permitir borrar registros de log.
+
+6️⃣ ESTRUCTURA DE CARPETAS
+/src
+  /modules
+    /auth
+    /anios
+    /alumnos
+    /cursos
+    /materias
+    /calificaciones
+  /middlewares
+    authMiddleware.js
+    roleMiddleware.js
+    estadoMiddleware.js
+  /utils
+    auditLogger.js
+7️⃣ VALIDACIONES CRÍTICAS
+
+Solo un año ACTIVO.
+
+No modificar estructura si año ACTIVO.
+
+No cargar nota si año CERRADO.
+
+No permitir duplicados críticos.
+
+Controlar errores con respuestas HTTP claras.
+
+8️⃣ RESPUESTAS HTTP
+
+Usar:
+
+200 OK
+
+201 Created
+
+400 Bad Request
+
+401 Unauthorized
+
+403 Forbidden
+
+404 Not Found
+
+500 Internal Server Error
+
+Formato uniforme:
+
+{
+  "success": true,
+  "data": {}
+}
+
+Errores:
+
+{
+  "success": false,
+  "message": "Descripción del error"
+}
+🎯 Resultado esperado
+
+Una API REST:
+
+Segura
+
+Modular
+
+Con control institucional
+
+Con auditoría
+
+Lista para producción en Docker
+
+Soportando hasta 50 usuarios concurrentes

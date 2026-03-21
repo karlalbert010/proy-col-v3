@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Auth - Cole API</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Auth</h1>
+      <div id="topNav" class="top"></div>
+    </header>
+    <main>
+      <section class="panel">
+        <h2>POST /auth/login</h2>
+        <div class="grid two">
+          <div>
+            <label>Username</label>
+            <input id="username" value="admin" />
+          </div>
+          <div>
+            <label>Password</label>
+            <input id="password" type="password" value="admin123" />
+          </div>
+        </div>
+        <div class="actions" style="margin-top: 10px">
+          <button class="primary" id="loginBtn">Login</button>
+          <button id="nextBtn" type="button">Continuar a Anios</button>
+        </div>
+        <p id="status" class="status"></p>
+      </section>
+
+      <section class="panel">
+        <h2>Respuesta</h2>
+        <pre id="result">{}</pre>
+      </section>
+    </main>
+    <script src="/api.js"></script>
+    <script src="/nav.js"></script>
+    <script>
+      renderTopNav('auth.html');
+      document.getElementById('nextBtn').addEventListener('click', () => {
+        window.location.href = '/anios.html';
+      });
+
+      document.getElementById('loginBtn').addEventListener('click', async () => {
+        try {
+          const username = document.getElementById('username').value.trim();
+          const password = document.getElementById('password').value;
+          const { response, payload } = await coleApi.apiRequest('POST', '/auth/login', { username, password });
+
+          if (!response.ok) {
+            coleApi.showStatus('status', payload.message || 'Error de login', false);
+            coleApi.showResult('result', payload);
+            return;
+          }
+
+          const token = payload && payload.data ? payload.data.token : '';
+          if (token) {
+            coleApi.setToken(token);
+          }
+          coleApi.showStatus('status', 'Login OK. Token guardado. Redirigiendo a Anios...', true);
+          coleApi.showResult('result', payload);
+          setTimeout(() => {
+            window.location.href = '/anios.html';
+          }, 1000);
+        } catch (error) {
+          coleApi.showStatus('status', `Error: ${error.message}`, false);
+        }
+      });
+    </script>
+  </body>
+</html>

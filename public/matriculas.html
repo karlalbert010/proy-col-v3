@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Matriculas - Cole API</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Matriculas</h1>
+      <div id="topNav" class="top"></div>
+    </header>
+    <main>
+      <section class="panel">
+        <h2>CRUD /matriculas</h2>
+        <div class="grid two">
+          <div><label>ID</label><input id="idValue" value="1" /></div>
+          <div><label>Filtro anio (GET)</label><input id="anioValue" placeholder="2025" /></div>
+        </div>
+        <label style="margin-top: 10px">Body JSON</label>
+<textarea id="bodyValue">{
+  "alumnoId": 1,
+  "cursoId": 1,
+  "estado_pago": false,
+  "estado_pago_mensual": false
+}</textarea>
+        <div class="actions" style="margin-top: 10px">
+          <button id="btnGetAll">GET /matriculas</button>
+          <button id="btnGetById">GET /matriculas/:id</button>
+          <button class="primary" id="btnCreate">POST /matriculas</button>
+          <button id="btnUpdate">PUT /matriculas/:id</button>
+          <button id="btnDelete">DELETE /matriculas/:id</button>
+        </div>
+        <p id="status" class="status"></p>
+      </section>
+      <section class="panel"><h2>Respuesta</h2><pre id="result">{}</pre></section>
+    </main>
+    <script src="/api.js"></script><script src="/nav.js"></script>
+    <script>
+      renderTopNav('matriculas.html');
+      function getIdValue() { return document.getElementById('idValue').value.trim(); }
+      function getAnioValue() { return document.getElementById('anioValue').value.trim(); }
+      function getBodyValue() { return coleApi.parseBody(document.getElementById('bodyValue').value); }
+      async function run(method, path, payload) {
+        const { response, payload: data } = await coleApi.apiRequest(method, path, payload);
+        coleApi.showStatus('status', `${method} ${path} -> ${response.status}`, response.ok);
+        coleApi.showResult('result', data);
+      }
+
+      document.getElementById('btnGetAll').addEventListener('click', () => {
+        const anio = getAnioValue();
+        const query = anio ? `?anio=${encodeURIComponent(anio)}` : '';
+        run('GET', `/matriculas${query}`);
+      });
+      document.getElementById('btnGetById').addEventListener('click', () => run('GET', `/matriculas/${getIdValue()}`));
+      document.getElementById('btnCreate').addEventListener('click', () => run('POST', '/matriculas', getBodyValue()));
+      document.getElementById('btnUpdate').addEventListener('click', () => run('PUT', `/matriculas/${getIdValue()}`, getBodyValue()));
+      document.getElementById('btnDelete').addEventListener('click', () => run('DELETE', `/matriculas/${getIdValue()}`));
+    </script>
+  </body>
+</html>

@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Actas de Periodo - Cole API</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Actas de Periodo</h1>
+      <div id="topNav" class="top"></div>
+    </header>
+    <main>
+      <section class="panel">
+        <h2>CRUD /actas-periodo</h2>
+        <div class="grid two">
+          <div><label>ID</label><input id="idValue" value="1" /></div>
+          <div><label>Query manual (opcional)</label><input id="queryValue" placeholder="?anio=2025&estado=ABIERTA" /></div>
+          <div><label>Filtro anio</label><input id="anioFilter" placeholder="2025" /></div>
+          <div><label>Filtro cursoMateriaDocenteId</label><input id="cmdFilter" placeholder="13" /></div>
+          <div><label>Filtro periodoId</label><input id="periodoFilter" placeholder="4" /></div>
+          <div>
+            <label>Filtro estado</label>
+            <select id="estadoFilter">
+              <option value="">(todos)</option>
+              <option value="ABIERTA">ABIERTA</option>
+              <option value="CERRADA">CERRADA</option>
+              <option value="FIRMADA">FIRMADA</option>
+            </select>
+          </div>
+        </div>
+
+        <label style="margin-top: 10px">Body JSON</label>
+        <textarea id="bodyValue">{
+  "cursoMateriaDocenteId": 13,
+  "periodoId": 4,
+  "estado": "ABIERTA",
+  "fechaApertura": "2025-03-01T00:00:00.000Z",
+  "fechaCierre": null,
+  "observaciones": "Acta inicial."
+}</textarea>
+
+        <div class="actions" style="margin-top: 10px">
+          <button id="btnGetAll">GET /actas-periodo</button>
+          <button id="btnGetById">GET /actas-periodo/:id</button>
+          <button class="primary" id="btnCreate">POST /actas-periodo</button>
+          <button id="btnUpdate">PUT /actas-periodo/:id</button>
+          <button id="btnDelete">DELETE /actas-periodo/:id</button>
+        </div>
+        <p id="status" class="status"></p>
+      </section>
+
+      <section class="panel">
+        <h2>Respuesta</h2>
+        <pre id="result">{}</pre>
+      </section>
+    </main>
+
+    <script src="/api.js"></script>
+    <script src="/nav.js"></script>
+    <script>
+      renderTopNav('actas-periodo.html');
+
+      function getIdValue() {
+        return document.getElementById('idValue').value.trim();
+      }
+      function getQueryValue() {
+        return document.getElementById('queryValue').value.trim();
+      }
+      function getBodyValue() {
+        return coleApi.parseBody(document.getElementById('bodyValue').value);
+      }
+      function getAutoQuery() {
+        const params = new URLSearchParams();
+        const anio = document.getElementById('anioFilter').value.trim();
+        const cmd = document.getElementById('cmdFilter').value.trim();
+        const periodoId = document.getElementById('periodoFilter').value.trim();
+        const estado = document.getElementById('estadoFilter').value.trim();
+
+        if (anio) params.set('anio', anio);
+        if (cmd) params.set('cursoMateriaDocenteId', cmd);
+        if (periodoId) params.set('periodoId', periodoId);
+        if (estado) params.set('estado', estado);
+
+        const query = params.toString();
+        return query ? `?${query}` : '';
+      }
+      async function run(method, path, payload) {
+        const { response, payload: data } = await coleApi.apiRequest(method, path, payload);
+        coleApi.showStatus('status', `${method} ${path} -> ${response.status}`, response.ok);
+        coleApi.showResult('result', data);
+      }
+
+      document.getElementById('btnGetAll').addEventListener('click', () => {
+        const query = getQueryValue() || getAutoQuery();
+        run('GET', `/actas-periodo${query}`);
+      });
+      document.getElementById('btnGetById').addEventListener('click', () => run('GET', `/actas-periodo/${getIdValue()}`));
+      document.getElementById('btnCreate').addEventListener('click', () => run('POST', '/actas-periodo', getBodyValue()));
+      document.getElementById('btnUpdate').addEventListener('click', () => run('PUT', `/actas-periodo/${getIdValue()}`, getBodyValue()));
+      document.getElementById('btnDelete').addEventListener('click', () => run('DELETE', `/actas-periodo/${getIdValue()}`));
+    </script>
+  </body>
+</html>
+

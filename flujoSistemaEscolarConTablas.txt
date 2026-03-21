@@ -1,0 +1,371 @@
+Flujo de un real sistema escolar profesional, desde que el profesor entra al sistema hasta que genera el boletín, incluyendo tablas necesarias con PK, FK, UNIQUE y campos importantes.
+
+La idea es que los complementes el sistema.
+
+1. El flujo completo del sistema
+
+En un sistema escolar típico ocurre esto:
+
+1 Profesor inicia sesión
+2 Selecciona curso y materia
+3 El sistema muestra alumnos
+4 El profesor crea evaluaciones
+5 El profesor carga notas
+6 El sistema calcula promedios
+7 Secretaría revisa
+8 Se cierra el acta trimestral
+9 Se genera el boletín
+
+Ahora veremos qué tablas intervienen en cada paso.
+
+2. Login del profesor
+Tabla USUARIO
+USUARIO
+------------------------------------------------
+PK  id_usuario          INT AUTO_INCREMENT
+UQ  username            VARCHAR(50)
+NN  password_hash       VARCHAR(255)
+NN  rol                 ENUM('admin','profesor','preceptor')
+    activo              BOOLEAN
+
+Tabla PROFESOR
+PROFESOR
+------------------------------------------------
+PK  id_profesor         INT AUTO_INCREMENT
+UQ  dni                 VARCHAR(10)
+
+FK  id_usuario          INT
+
+NN  apellido            VARCHAR(50)
+NN  nombre              VARCHAR(50)
+
+UQ  email               VARCHAR(120)
+
+Relación:
+
+USUARIO 1 ---- 1 PROFESOR
+3. Estructura académica
+
+Tabla CURSO
+CURSO
+------------------------------------------------
+PK  id_curso            INT AUTO_INCREMENT
+
+NN  anio                INT
+NN  division            CHAR(1)
+    nivel               ENUM('primaria','secundaria')
+
+UQ (anio,division)
+
+Ejemplo:
+
+id	curso
+1	3A
+
+Tabla MATERIA
+MATERIA
+------------------------------------------------
+PK  id_materia          INT AUTO_INCREMENT
+
+UQ  nombre              VARCHAR(80)
+
+    area                VARCHAR(50)
+Tabla CURSO_MATERIA
+
+Define qué profesor dicta una materia en un curso.
+
+CURSO_MATERIA
+------------------------------------------------
+PK  id_curso_materia     INT AUTO_INCREMENT
+
+FK  id_curso             INT
+FK  id_materia           INT
+FK  id_profesor          INT
+
+NN  anio_lectivo         INT
+
+UQ (id_curso,id_materia,anio_lectivo)
+4. Inscripción del alumno
+Tabla ALUMNO
+ALUMNO
+------------------------------------------------
+PK  id_alumno           INT AUTO_INCREMENT
+
+UQ  dni                 VARCHAR(10)
+
+NN  apellido            VARCHAR(50)
+NN  nombre              VARCHAR(50)
+
+    fecha_nacimiento    DATE
+    datos_medicos       TEXT
+Tabla INSCRIPCION
+
+Un alumno pertenece a un curso en un año.
+
+INSCRIPCION
+------------------------------------------------
+PK  id_inscripcion       INT AUTO_INCREMENT
+
+FK  id_alumno            INT
+FK  id_curso             INT
+
+NN  anio_lectivo         INT
+
+estado                   ENUM('activo','libre','egresado')
+
+UQ (id_alumno,id_curso,anio_lectivo)
+5. Configuración pedagógica
+
+Aquí definimos cómo se evalúa.
+
+Tabla CONFIG_EVALUACION
+CONFIG_EVALUACION
+------------------------------------------------
+PK  id_config_eval      INT AUTO_INCREMENT
+
+FK  id_curso_materia    INT
+
+NN  trimestre           INT
+NN  mes                 INT
+
+NN  tipo_evaluacion     ENUM(
+                           'parcial',
+                           'trabajo_practico',
+                           'oral',
+                           'tarea'
+                        )
+
+cantidad_evaluaciones   INT DEFAULT 1
+
+ponderacion             DECIMAL(4,2)
+
+recuperatorio_habilitado BOOLEAN
+
+Esto define por ejemplo:
+
+mes	evaluacion
+marzo	parcial
+abril	trabajo
+6. Creación de evaluación
+
+Cuando el profesor crea una evaluación real.
+
+Tabla EVALUACION
+EVALUACION
+------------------------------------------------
+PK  id_evaluacion        INT AUTO_INCREMENT
+
+FK  id_config_eval       INT
+
+NN  fecha                DATE
+
+descripcion              VARCHAR(200)
+
+estado                   ENUM('abierta','cerrada')
+
+Ejemplo:
+
+evaluacion
+Parcial marzo
+7. Carga de notas
+
+Aquí el profesor carga las notas.
+
+Tabla CALIFICACION
+CALIFICACION
+------------------------------------------------
+PK  id_calificacion      INT AUTO_INCREMENT
+
+FK  id_evaluacion        INT
+FK  id_inscripcion       INT
+
+NN  nota                 DECIMAL(4,2)
+
+fecha_carga              DATETIME
+
+UQ (id_evaluacion,id_inscripcion)
+
+Esto evita:
+
+❌ cargar dos notas para el mismo alumno en la misma evaluación.
+
+8. Recuperatorios
+
+Cuando un alumno recupera.
+
+Tabla RECUPERATORIO
+RECUPERATORIO
+------------------------------------------------
+PK  id_recuperatorio     INT AUTO_INCREMENT
+
+FK  id_calificacion_original INT
+
+FK  id_evaluacion        INT
+
+nota                     DECIMAL(4,2)
+
+Esto permite:
+
+conservar nota original
+
+guardar la recuperación.
+
+9. Cálculo del trimestre
+
+Cuando termina el trimestre se calcula la nota final.
+
+Tabla CALIFICACION_TRIMESTRAL
+CALIFICACION_TRIMESTRAL
+------------------------------------------------
+PK  id_calif_trim        INT AUTO_INCREMENT
+
+FK  id_inscripcion       INT
+FK  id_curso_materia     INT
+
+NN  trimestre            INT
+
+nota_final               DECIMAL(4,2)
+
+nota_conceptual          VARCHAR(20)
+
+UQ (id_inscripcion,id_curso_materia,trimestre)
+10. Cierre del acta
+
+Secretaría cierra las notas.
+
+Tabla ACTA_TRIMESTRAL
+ACTA_TRIMESTRAL
+------------------------------------------------
+PK  id_acta              INT AUTO_INCREMENT
+
+FK  id_curso_materia     INT
+
+NN  trimestre            INT
+NN  anio_lectivo         INT
+
+estado                   ENUM('abierta','cerrada','firmada')
+
+fecha_apertura           DATETIME
+fecha_cierre             DATETIME
+
+Cuando el estado es:
+
+cerrada
+
+❌ no se pueden modificar notas.
+
+11. Generación del boletín
+
+El boletín se genera usando:
+
+ALUMNO
+INSCRIPCION
+CURSO
+MATERIA
+CALIFICACION_TRIMESTRAL
+
+Consulta típica:
+
+SELECT
+alumno.apellido,
+alumno.nombre,
+materia.nombre,
+calificacion_trimestral.nota_final
+FROM calificacion_trimestral
+JOIN inscripcion
+ON calificacion_trimestral.id_inscripcion = inscripcion.id_inscripcion
+JOIN alumno
+ON inscripcion.id_alumno = alumno.id_alumno
+JOIN curso_materia
+ON calificacion_trimestral.id_curso_materia = curso_materia.id_curso_materia
+JOIN materia
+ON curso_materia.id_materia = materia.id_materia;
+12. Diagrama lógico completo
+
+El flujo de datos sería:
+
+USUARIO
+   │
+PROFESOR
+   │
+CURSO_MATERIA
+   │
+CONFIG_EVALUACION
+   │
+EVALUACION
+   │
+CALIFICACION
+   │
+CALIFICACION_TRIMESTRAL
+   │
+ACTA_TRIMESTRAL
+
+Con alumnos:
+
+ALUMNO
+   │
+INSCRIPCION
+   │
+CALIFICACION
+13. Qué parte usarás más en tu aplicación
+
+Tu frontend de profesores trabajará principalmente con:
+
+CURSO_MATERIA
+INSCRIPCION
+EVALUACION
+CALIFICACION
+
+La secretaría trabajará con:
+
+CONFIG_EVALUACION
+ACTA_TRIMESTRAL
+CALIFICACION_TRIMESTRAL
+
+El siguiente paso para el proyecto ERD optimizado específicamente para el sistema (adaptado a MySQL  + carga rápida de notas por grilla tipo Excel).
+
+1. Principio clave para sistemas de notas
+
+En sistemas escolares con carga por grilla, la estructura crítica es:
+
+alumnos (filas)
+evaluaciones (columnas)
+notas (celdas)
+
+Por eso la tabla central es:
+
+CALIFICACION
+
+que conecta:
+
+INSCRIPCION + EVALUACION
+2. ERD optimizado (visión general)
+USUARIO
+   │
+PROFESOR
+   │
+CURSO_MATERIA
+   │
+CONFIG_EVALUACION
+   │
+EVALUACION
+   │
+CALIFICACION
+   │
+CALIFICACION_TRIMESTRAL
+
+y alumnos:
+
+ALUMNO
+   │
+INSCRIPCION
+   │
+CALIFICACION
+
+y alumnos:
+
+ALUMNO
+   │
+INSCRIPCION
+   │
+CALIFICACION

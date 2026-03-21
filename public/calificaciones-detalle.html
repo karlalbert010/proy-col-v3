@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CalificacionDetalle - Cole API</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>CalificacionDetalle - Flujo de Edicion</h1>
+      <div id="topNav" class="top"></div>
+    </header>
+    <main>
+      <section class="panel">
+        <h2>Contexto de Trabajo</h2>
+        <div class="grid two">
+          <div>
+            <label>Accion</label>
+            <select id="accion">
+              <option value="VER">Ver</option>
+              <option value="CREAR">Crear</option>
+              <option value="EDITAR">Editar</option>
+              <option value="ELIMINAR">Eliminar</option>
+            </select>
+          </div>
+          <div>
+            <label>Anio</label>
+            <select id="anioSelect"></select>
+          </div>
+          <div>
+            <label>Curso</label>
+            <select id="cursoSelect"></select>
+          </div>
+          <div>
+            <label>Periodo</label>
+            <select id="periodoSelect"></select>
+          </div>
+          <div>
+            <label>Materia Anual</label>
+            <select id="materiaSelect"></select>
+          </div>
+          <div>
+            <label>Alumno (ID + Apellido y Nombre)</label>
+            <select id="alumnoSelect"></select>
+          </div>
+        </div>
+        <div class="actions" style="margin-top: 10px">
+          <button id="btnCargarContexto" class="primary">Cargar Contexto</button>
+          <button id="btnBuscarCalificacion">Buscar Calificacion</button>
+          <button id="btnVerListadoAlumnos">Ver Listado Alumnos Curso</button>
+        </div>
+        <p id="statusContexto" class="status"></p>
+      </section>
+
+      <section class="panel">
+        <h2>Estado y Seleccion Actual</h2>
+        <div class="grid two">
+          <div><label>Estado del Anio/Periodo</label><input id="estadoPeriodo" readonly /></div>
+          <div><label>Calificacion ID</label><input id="calificacionId" readonly /></div>
+          <div><label>CalificacionDetalle ID</label><input id="detalleId" readonly /></div>
+          <div><label>Nota Base Calificacion</label><input id="notaBase" readonly /></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Listado de Alumnos del Curso</h2>
+        <pre id="alumnosListado">[]</pre>
+      </section>
+
+      <section class="panel">
+        <h2>Formulario CalificacionDetalle</h2>
+        <div class="grid two">
+          <div><label>notaOrint1erTrim</label><input id="notaOrint1erTrim" /></div>
+          <div><label>nota1erTrimMes1</label><input id="nota1erTrimMes1" /></div>
+          <div><label>nota1erTrimMes2</label><input id="nota1erTrimMes2" /></div>
+          <div><label>nota1erTrimMes3</label><input id="nota1erTrimMes3" /></div>
+          <div><label>recup1erTrim</label><input id="recup1erTrim" /></div>
+          <div><label>observ1erTrim</label><input id="observ1erTrim" /></div>
+          <div><label>notaOrint2doTrim</label><input id="notaOrint2doTrim" /></div>
+          <div><label>nota2doTrimMes1</label><input id="nota2doTrimMes1" /></div>
+          <div><label>nota2doTrimMes2</label><input id="nota2doTrimMes2" /></div>
+          <div><label>nota2doTrimMes3</label><input id="nota2doTrimMes3" /></div>
+          <div><label>recup2doTrim</label><input id="recup2doTrim" /></div>
+          <div><label>observ2doTrim</label><input id="observ2doTrim" /></div>
+          <div><label>notaOrint3erTrim</label><input id="notaOrint3erTrim" /></div>
+          <div><label>nota3erTrimMes1</label><input id="nota3erTrimMes1" /></div>
+          <div><label>nota3erTrimMes2</label><input id="nota3erTrimMes2" /></div>
+          <div><label>nota3erTrimMes3</label><input id="nota3erTrimMes3" /></div>
+          <div><label>recup3erTrim</label><input id="recup3erTrim" /></div>
+          <div><label>observ3erTrim</label><input id="observ3erTrim" /></div>
+          <div><label>acompDic</label><input id="acompDic" /></div>
+          <div><label>acompFeb</label><input id="acompFeb" /></div>
+          <div><label>alumConAcomp</label><input id="alumConAcomp" /></div>
+        </div>
+        <div class="actions" style="margin-top: 10px">
+          <button id="btnEjecutarAccion" class="primary">Ejecutar Accion</button>
+          <button id="btnCargarDetalleActual">Cargar Detalle Actual</button>
+          <button id="btnCompararView">Comparar contra View 1A T1</button>
+          <button id="btnLimpiarFormulario">Limpiar Formulario</button>
+        </div>
+        <p id="statusAccion" class="status"></p>
+      </section>
+
+      <section class="panel">
+        <h2>Respuesta API / Estado de Cambio</h2>
+        <pre id="result">{}</pre>
+      </section>
+    </main>
+
+    <script src="/api.js"></script>
+    <script src="/nav.js"></script>
+    <script>
+      renderTopNav('calificaciones-detalle.html');
+
+      const state = {
+        anios: [],
+        cursos: [],
+        periodos: [],
+        materias: [],
+        materiasCurso: [],
+        matriculasAll: [],
+        alumnosCurso: [],
+        calificacionesCurso: [],
+        selectedCalificacion: null
+      };
+
+      function byId(id) {
+        return document.getElementById(id);
+      }
+
+      function parseNumOrNull(v) {
+        const raw = String(v ?? '').trim();
+        if (!raw) return null;
+        const n = Number(raw);
+        return Number.isFinite(n) ? n : null;
+      }
+
+      function selectedOptionInt(selectId) {
+        const raw = byId(selectId).value;
+        const n = Number(raw);
+        return Number.isInteger(n) ? n : null;
+      }
+
+      function setSelectOptions(selectId, rows, valueField, labelFn) {
+        const select = byId(selectId);
+        const html = rows.map((r) => `<option value="${r[valueField]}">${labelFn(r)}</option>`).join('');
+        select.innerHTML = html || '<option value="">(sin datos)</option>';
+        select.disabled = rows.length === 0;
+      }
+
+      function buildAlumnosCursoFromMatriculas(cursoId) {
+        return state.matriculasAll
+          .filter((m) => m.cursoId === cursoId)
+          .map((m) => ({
+            matriculaId: m.id,
+            alumnoId: m.alumnoId,
+            apellido: m.alumno.apellido,
+            nombre: m.alumno.nombre,
+            dni: m.alumno.dni
+          }))
+          .sort((a, b) => String(a.apellido).localeCompare(String(b.apellido)));
+      }
+
+      function applyAlumnosFilterByMateriaPeriodo() {
+        const materiaId = selectedOptionInt('materiaSelect');
+        const periodoId = selectedOptionInt('periodoSelect');
+
+        if (!Number.isInteger(materiaId) || !Number.isInteger(periodoId)) {
+          setSelectOptions('alumnoSelect', state.alumnosCurso, 'alumnoId', (a) => `${a.alumnoId} - ${a.apellido}, ${a.nombre}`);
+          byId('alumnosListado').textContent = JSON.stringify(state.alumnosCurso, null, 2);
+          return;
+        }
+
+        const alumnosConCalif = new Set(
+          state.calificacionesCurso
+            .filter((c) => c.materiaAnualId === materiaId && c.periodoId === periodoId)
+            .map((c) => c.matricula && c.matricula.alumnoId)
+            .filter((id) => Number.isInteger(id))
+        );
+
+        const filtrados = state.alumnosCurso.filter((a) => alumnosConCalif.has(a.alumnoId));
+        const finalRows = filtrados.length > 0 ? filtrados : state.alumnosCurso;
+        setSelectOptions('alumnoSelect', finalRows, 'alumnoId', (a) => `${a.alumnoId} - ${a.apellido}, ${a.nombre}`);
+        byId('alumnosListado').textContent = JSON.stringify(finalRows, null, 2);
+      }
+
+      async function onCursoChange() {
+        const anio = selectedOptionInt('anioSelect');
+        const cursoId = selectedOptionInt('cursoSelect');
+        if (!Number.isInteger(anio) || !Number.isInteger(cursoId)) {
+          state.materiasCurso = [];
+          state.calificacionesCurso = [];
+          state.alumnosCurso = [];
+          setSelectOptions('materiaSelect', [], 'id', () => '');
+          setSelectOptions('alumnoSelect', [], 'alumnoId', () => '');
+          byId('alumnosListado').textContent = '[]';
+          return;
+        }
+
+        state.alumnosCurso = buildAlumnosCursoFromMatriculas(cursoId);
+
+        const { response, payload } = await coleApi.apiRequest('GET', `/calificaciones?anio=${anio}&curso=${cursoId}`);
+        if (!response.ok) {
+          state.calificacionesCurso = [];
+          state.materiasCurso = [];
+          setSelectOptions('materiaSelect', [], 'id', () => '');
+          applyAlumnosFilterByMateriaPeriodo();
+          coleApi.showStatus('statusContexto', 'No se pudieron cargar materias por curso.', false);
+          coleApi.showResult('result', payload);
+          return;
+        }
+
+        state.calificacionesCurso = payload.data || [];
+        const materiasMap = new Map();
+        for (const c of state.calificacionesCurso) {
+          if (c.materiaAnual && Number.isInteger(c.materiaAnual.id)) {
+            materiasMap.set(c.materiaAnual.id, c.materiaAnual);
+          }
+        }
+        state.materiasCurso = Array.from(materiasMap.values()).sort((a, b) => String(a.nombre).localeCompare(String(b.nombre)));
+        const cursoActual = state.cursos.find((c) => c.id === cursoId);
+        const cursoLabel = cursoActual ? `${cursoActual.id} - ${cursoActual.nombre}` : `id:${cursoId}`;
+        setSelectOptions('materiaSelect', state.materiasCurso, 'id', (r) => `${r.id} | Curso ${cursoLabel} | ${r.nombre}`);
+        applyAlumnosFilterByMateriaPeriodo();
+      }
+
+      async function cargarAnios() {
+        const { response, payload } = await coleApi.apiRequest('GET', '/anios');
+        if (!response.ok) {
+          coleApi.showStatus('statusContexto', 'No se pudieron cargar anios.', false);
+          coleApi.showResult('result', payload);
+          return;
+        }
+
+        state.anios = (payload.data || []).slice().sort((a, b) => b.anio - a.anio);
+        setSelectOptions('anioSelect', state.anios, 'anio', (r) => `${r.anio} (id:${r.id}, ${r.estado})`);
+
+        const active = state.anios.find((a) => a.estado === 'ACTIVO');
+        if (active) {
+          byId('anioSelect').value = String(active.anio);
+        }
+      }
+
+      function fillDetalleForm(detalle) {
+        const fields = [
+          'notaOrint1erTrim', 'nota1erTrimMes1', 'nota1erTrimMes2', 'nota1erTrimMes3', 'recup1erTrim', 'observ1erTrim',
+          'notaOrint2doTrim', 'nota2doTrimMes1', 'nota2doTrimMes2', 'nota2doTrimMes3', 'recup2doTrim', 'observ2doTrim',
+          'notaOrint3erTrim', 'nota3erTrimMes1', 'nota3erTrimMes2', 'nota3erTrimMes3', 'recup3erTrim', 'observ3erTrim',
+          'acompDic', 'acompFeb', 'alumConAcomp'
+        ];
+
+        fields.forEach((f) => {
+          byId(f).value = detalle && detalle[f] != null ? String(detalle[f]) : '';
+        });
+      }
+
+      function buildDetallePayload() {
+        return {
+          notaOrint1erTrim: parseNumOrNull(byId('notaOrint1erTrim').value),
+          nota1erTrimMes1: parseNumOrNull(byId('nota1erTrimMes1').value),
+          nota1erTrimMes2: parseNumOrNull(byId('nota1erTrimMes2').value),
+          nota1erTrimMes3: parseNumOrNull(byId('nota1erTrimMes3').value),
+          recup1erTrim: parseNumOrNull(byId('recup1erTrim').value),
+          observ1erTrim: byId('observ1erTrim').value.trim() || null,
+          notaOrint2doTrim: parseNumOrNull(byId('notaOrint2doTrim').value),
+          nota2doTrimMes1: parseNumOrNull(byId('nota2doTrimMes1').value),
+          nota2doTrimMes2: parseNumOrNull(byId('nota2doTrimMes2').value),
+          nota2doTrimMes3: parseNumOrNull(byId('nota2doTrimMes3').value),
+          recup2doTrim: parseNumOrNull(byId('recup2doTrim').value),
+          observ2doTrim: byId('observ2doTrim').value.trim() || null,
+          notaOrint3erTrim: parseNumOrNull(byId('notaOrint3erTrim').value),
+          nota3erTrimMes1: parseNumOrNull(byId('nota3erTrimMes1').value),
+          nota3erTrimMes2: parseNumOrNull(byId('nota3erTrimMes2').value),
+          nota3erTrimMes3: parseNumOrNull(byId('nota3erTrimMes3').value),
+          recup3erTrim: parseNumOrNull(byId('recup3erTrim').value),
+          observ3erTrim: byId('observ3erTrim').value.trim() || null,
+          acompDic: byId('acompDic').value.trim() || null,
+          acompFeb: byId('acompFeb').value.trim() || null,
+          alumConAcomp: byId('alumConAcomp').value.trim() || null
+        };
+      }
+
+      async function cargarContexto() {
+        const anio = selectedOptionInt('anioSelect');
+        if (!anio) {
+          coleApi.showStatus('statusContexto', 'Anio invalido.', false);
+          return;
+        }
+
+        const [cursosRes, periodosRes, materiasRes, matriculasRes] = await Promise.all([
+          coleApi.apiRequest('GET', `/cursos?anio=${anio}`),
+          coleApi.apiRequest('GET', `/periodos?anio=${anio}`),
+          coleApi.apiRequest('GET', `/materias-anuales?anio=${anio}`),
+          coleApi.apiRequest('GET', '/matriculas')
+        ]);
+
+        if (!cursosRes.response.ok || !periodosRes.response.ok || !materiasRes.response.ok || !matriculasRes.response.ok) {
+          coleApi.showStatus('statusContexto', 'Error cargando contexto.', false);
+          coleApi.showResult('result', {
+            cursos: cursosRes.payload,
+            periodos: periodosRes.payload,
+            materias: materiasRes.payload,
+            matriculas: matriculasRes.payload
+          });
+          return;
+        }
+
+        state.cursos = cursosRes.payload.data || [];
+        state.periodos = periodosRes.payload.data || [];
+        state.materias = materiasRes.payload.data || [];
+        state.matriculasAll = (matriculasRes.payload.data || []).filter((m) => m.curso && m.curso.anio && m.curso.anio.anio === anio);
+        state.alumnosCurso = [];
+        state.materiasCurso = [];
+        state.calificacionesCurso = [];
+
+        setSelectOptions('cursoSelect', state.cursos, 'id', (r) => `${r.id} - ${r.nombre}`);
+        setSelectOptions('periodoSelect', state.periodos, 'id', (r) => `${r.id} - ${r.nombre} (orden ${r.orden})`);
+        setSelectOptions('materiaSelect', [], 'id', () => '');
+        setSelectOptions('alumnoSelect', [], 'alumnoId', () => '');
+
+        if (state.cursos.length === 0 || state.periodos.length === 0 || state.materias.length === 0) {
+          coleApi.showStatus(
+            'statusContexto',
+            `Anio ${anio} sin estructura completa (cursos:${state.cursos.length}, periodos:${state.periodos.length}, materias:${state.materias.length}).`,
+            false
+          );
+          return;
+        }
+
+        await onCursoChange();
+        coleApi.showStatus(
+          'statusContexto',
+          `Contexto cargado. Cursos:${state.cursos.length}, Periodos:${state.periodos.length}, Materias:${state.materias.length}.`,
+          true
+        );
+      }
+
+      async function verListadoAlumnosCurso() {
+        const cursoId = selectedOptionInt('cursoSelect');
+        if (!cursoId) {
+          coleApi.showStatus('statusContexto', 'Selecciona un curso.', false);
+          return;
+        }
+
+        const alumnos = state.matriculasAll
+          .filter((m) => m.cursoId === cursoId)
+          .map((m) => ({
+            matriculaId: m.id,
+            alumnoId: m.alumnoId,
+            apellido: m.alumno.apellido,
+            nombre: m.alumno.nombre,
+            dni: m.alumno.dni
+          }))
+          .sort((a, b) => String(a.apellido).localeCompare(String(b.apellido)));
+
+        state.alumnosCurso = alumnos;
+        applyAlumnosFilterByMateriaPeriodo();
+        coleApi.showStatus('statusContexto', `Listado generado (${alumnos.length} alumnos).`, true);
+      }
+
+      async function buscarCalificacion() {
+        const anio = selectedOptionInt('anioSelect');
+        const cursoId = selectedOptionInt('cursoSelect');
+        const periodoId = selectedOptionInt('periodoSelect');
+        const materiaId = selectedOptionInt('materiaSelect');
+        const alumnoId = selectedOptionInt('alumnoSelect');
+
+        if (!Number.isInteger(anio) || !cursoId || !periodoId || !materiaId || !Number.isInteger(alumnoId)) {
+          coleApi.showStatus('statusContexto', 'Faltan filtros: anio, curso, periodo, materia, alumnoId.', false);
+          return;
+        }
+
+        const query = `/calificaciones?anio=${anio}&curso=${cursoId}&alumno=${alumnoId}&materia=${materiaId}`;
+        const { response, payload } = await coleApi.apiRequest('GET', query);
+        if (!response.ok) {
+          coleApi.showStatus('statusContexto', 'Error buscando calificacion.', false);
+          coleApi.showResult('result', payload);
+          return;
+        }
+
+        const match = (payload.data || []).find((c) => c.periodoId === periodoId) || null;
+        state.selectedCalificacion = match;
+
+        if (!match) {
+          byId('calificacionId').value = '';
+          byId('detalleId').value = '';
+          byId('notaBase').value = '';
+          byId('estadoPeriodo').value = '';
+          fillDetalleForm(null);
+          coleApi.showStatus('statusContexto', 'No se encontro calificacion para esa combinacion.', false);
+          return;
+        }
+
+        byId('calificacionId').value = match.id;
+        byId('detalleId').value = match.detalle ? match.detalle.id : '';
+        byId('notaBase').value = match.nota;
+        byId('estadoPeriodo').value = match.periodo && match.periodo.anio ? match.periodo.anio.estado : '';
+        fillDetalleForm(match.detalle || null);
+
+        coleApi.showStatus('statusContexto', `Calificacion encontrada (id=${match.id}).`, true);
+        coleApi.showResult('result', match);
+      }
+
+      async function cargarDetalleActual() {
+        const detalleId = Number(byId('detalleId').value.trim());
+        if (!Number.isInteger(detalleId)) {
+          coleApi.showStatus('statusAccion', 'No hay detalle asociado para cargar.', false);
+          return;
+        }
+
+        const { response, payload } = await coleApi.apiRequest('GET', `/calificaciones-detalle/${detalleId}`);
+        if (!response.ok) {
+          coleApi.showStatus('statusAccion', 'Error cargando detalle actual.', false);
+          coleApi.showResult('result', payload);
+          return;
+        }
+
+        fillDetalleForm(payload.data);
+        coleApi.showStatus('statusAccion', 'Detalle cargado en formulario.', true);
+        coleApi.showResult('result', payload.data);
+      }
+
+      async function ejecutarAccion() {
+        const accion = byId('accion').value;
+        const calificacionId = Number(byId('calificacionId').value.trim());
+        const detalleId = Number(byId('detalleId').value.trim());
+        const payloadDetalle = buildDetallePayload();
+
+        if (!Number.isInteger(calificacionId)) {
+          coleApi.showStatus('statusAccion', 'Primero busca una calificacion valida.', false);
+          return;
+        }
+
+        if (accion === 'VER') {
+          if (!Number.isInteger(detalleId)) {
+            coleApi.showStatus('statusAccion', 'No hay detalle para mostrar.', false);
+            return;
+          }
+          const { response, payload } = await coleApi.apiRequest('GET', `/calificaciones-detalle/${detalleId}`);
+          coleApi.showStatus('statusAccion', `VER -> ${response.status}`, response.ok);
+          coleApi.showResult('result', payload);
+          return;
+        }
+
+        if (accion === 'CREAR') {
+          const { response, payload } = await coleApi.apiRequest('POST', '/calificaciones-detalle', {
+            calificacionId,
+            ...payloadDetalle
+          });
+          coleApi.showStatus('statusAccion', `CREAR -> ${response.status}`, response.ok);
+          coleApi.showResult('result', payload);
+          if (response.ok) {
+            byId('detalleId').value = payload.data.id;
+          }
+          return;
+        }
+
+        if (accion === 'EDITAR') {
+          if (!Number.isInteger(detalleId)) {
+            coleApi.showStatus('statusAccion', 'No hay detalleId para editar.', false);
+            return;
+          }
+          const { response, payload } = await coleApi.apiRequest('PUT', `/calificaciones-detalle/${detalleId}`, payloadDetalle);
+          coleApi.showStatus('statusAccion', `EDITAR -> ${response.status}`, response.ok);
+          coleApi.showResult('result', payload);
+          return;
+        }
+
+        if (accion === 'ELIMINAR') {
+          if (!Number.isInteger(detalleId)) {
+            coleApi.showStatus('statusAccion', 'No hay detalleId para eliminar.', false);
+            return;
+          }
+          const { response, payload } = await coleApi.apiRequest('DELETE', `/calificaciones-detalle/${detalleId}`);
+          coleApi.showStatus('statusAccion', `ELIMINAR -> ${response.status}`, response.ok);
+          coleApi.showResult('result', payload);
+          if (response.ok) {
+            byId('detalleId').value = '';
+          }
+        }
+      }
+
+      async function compararConView() {
+        const calificacionId = Number(byId('calificacionId').value.trim());
+        if (!Number.isInteger(calificacionId)) {
+          coleApi.showStatus('statusAccion', 'Primero busca una calificacion valida.', false);
+          return;
+        }
+
+        const { response, payload } = await coleApi.apiRequest(
+          'GET',
+          `/calificaciones-detalle/comparar-view?calificacionId=${calificacionId}`
+        );
+
+        if (!response.ok) {
+          coleApi.showStatus('statusAccion', `Comparacion -> ${response.status}`, false);
+          coleApi.showResult('result', payload);
+          return;
+        }
+
+        const data = payload.data || {};
+        if (data.comparable === false) {
+          coleApi.showStatus('statusAccion', 'Comparacion no aplicable para esa calificacion.', false);
+        } else if (data.match) {
+          coleApi.showStatus('statusAccion', 'Coincide con la view en todos los campos comparados.', true);
+        } else {
+          coleApi.showStatus('statusAccion', `Se detectaron ${data.differences.length} diferencias.`, false);
+        }
+
+        coleApi.showResult('result', data);
+      }
+
+      function limpiarFormulario() {
+        fillDetalleForm(null);
+        coleApi.showStatus('statusAccion', 'Formulario limpio.', true);
+      }
+
+      byId('btnCargarContexto').addEventListener('click', cargarContexto);
+      byId('btnVerListadoAlumnos').addEventListener('click', verListadoAlumnosCurso);
+      byId('btnBuscarCalificacion').addEventListener('click', buscarCalificacion);
+      byId('btnEjecutarAccion').addEventListener('click', ejecutarAccion);
+      byId('btnCargarDetalleActual').addEventListener('click', cargarDetalleActual);
+      byId('btnCompararView').addEventListener('click', compararConView);
+      byId('btnLimpiarFormulario').addEventListener('click', limpiarFormulario);
+      byId('cursoSelect').addEventListener('change', onCursoChange);
+      byId('materiaSelect').addEventListener('change', applyAlumnosFilterByMateriaPeriodo);
+      byId('periodoSelect').addEventListener('change', applyAlumnosFilterByMateriaPeriodo);
+
+      cargarAnios();
+    </script>
+  </body>
+</html>
