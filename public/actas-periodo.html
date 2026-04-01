@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
@@ -18,7 +18,7 @@
           <div><label>ID</label><input id="idValue" value="1" /></div>
           <div><label>Query manual (opcional)</label><input id="queryValue" placeholder="?anio=2025&estado=ABIERTA" /></div>
           <div><label>Filtro anio</label><input id="anioFilter" placeholder="2025" /></div>
-          <div><label>Filtro cursoMateriaDocenteId</label><input id="cmdFilter" placeholder="13" /></div>
+          <div><label>Filtro cursoMateriaId</label><input id="cursoMateriaFilter" placeholder="7" /></div>
           <div><label>Filtro periodoId</label><input id="periodoFilter" placeholder="4" /></div>
           <div>
             <label>Filtro estado</label>
@@ -33,7 +33,7 @@
 
         <label style="margin-top: 10px">Body JSON</label>
         <textarea id="bodyValue">{
-  "cursoMateriaDocenteId": 13,
+  "cursoMateriaId": 13,
   "periodoId": 4,
   "estado": "ABIERTA",
   "fechaApertura": "2025-03-01T00:00:00.000Z",
@@ -74,12 +74,12 @@
       function getAutoQuery() {
         const params = new URLSearchParams();
         const anio = document.getElementById('anioFilter').value.trim();
-        const cmd = document.getElementById('cmdFilter').value.trim();
+        const cmd = document.getElementById('cursoMateriaFilter').value.trim();
         const periodoId = document.getElementById('periodoFilter').value.trim();
         const estado = document.getElementById('estadoFilter').value.trim();
 
         if (anio) params.set('anio', anio);
-        if (cmd) params.set('cursoMateriaDocenteId', cmd);
+        if (cmd) params.set('cursoMateriaId', cmd);
         if (periodoId) params.set('periodoId', periodoId);
         if (estado) params.set('estado', estado);
 
@@ -103,4 +103,5 @@
     </script>
   </body>
 </html>
+
 

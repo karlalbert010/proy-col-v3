@@ -75,13 +75,10 @@ function parseTipo(value) {
 
 function buildInclude() {
   return {
-    cursoMateriaDocente: {
+    cursoMateria: {
       include: {
-        curso: {
-          include: { anio: true }
-        },
-        materiaAnual: true,
-        docente: true
+        curso: { include: { anio: true } },
+        materiaAnual: { include: { materia: true, anio: true } }
       }
     },
     periodo: {
@@ -92,23 +89,23 @@ function buildInclude() {
   };
 }
 
-async function ensureReferences(cursoMateriaDocenteId, periodoId) {
-  const [cmd, periodo] = await Promise.all([
-    prisma.cursoMateriaDocente.findUnique({
-      where: { id: cursoMateriaDocenteId },
+async function ensureReferences(cursoMateriaId, periodoId) {
+  const [cursoMateria, periodo] = await Promise.all([
+    prisma.cursoMateria.findUnique({
+      where: { id: cursoMateriaId },
       include: { curso: true, materiaAnual: true }
     }),
     prisma.periodo.findUnique({ where: { id: periodoId } })
   ]);
 
-  if (!cmd) {
-    throw createHttpError('CursoMateriaDocente no encontrado.', 404);
+  if (!cursoMateria) {
+    throw createHttpError('CursoMateria no encontrado.', 404);
   }
   if (!periodo) {
     throw createHttpError('Periodo no encontrado.', 404);
   }
 
-  if (cmd.curso.anioId !== periodo.anioId || cmd.materiaAnual.anioId !== periodo.anioId) {
+  if (cursoMateria.curso.anioId !== periodo.anioId || cursoMateria.materiaAnual.anioId !== periodo.anioId) {
     throw createHttpError(
       'Curso, materia anual y periodo deben pertenecer al mismo anio lectivo.',
       400
@@ -133,10 +130,10 @@ function buildWhere(filters) {
     });
   }
 
-  if (filters.cursoMateriaDocenteId !== undefined) {
-    const cmd = parseNullablePositiveInteger(filters.cursoMateriaDocenteId, 'cursoMateriaDocenteId');
-    if (cmd) {
-      and.push({ cursoMateriaDocenteId: cmd });
+  if (filters.cursoMateriaId !== undefined) {
+    const cursoMateriaId = parseNullablePositiveInteger(filters.cursoMateriaId, 'cursoMateriaId');
+    if (cursoMateriaId) {
+      and.push({ cursoMateriaId });
     }
   }
 
@@ -165,18 +162,24 @@ function buildWhere(filters) {
 function parsePayload(payload, partial = false) {
   const data = {};
 
+  if (payload.cursoMateriaDocenteId !== undefined) {
+    throw createHttpError('El campo cursoMateriaDocenteId ya no es valido. Use cursoMateriaId.', 400);
+  }
+
   const required = (field) => {
     if (!partial && (payload[field] === undefined || payload[field] === null || payload[field] === '')) {
       throw createHttpError(`El campo ${field} es obligatorio.`, 400);
     }
   };
 
-  required('cursoMateriaDocenteId');
+  if (!partial && (payload.cursoMateriaId === undefined || payload.cursoMateriaId === null || payload.cursoMateriaId === '')) {
+    throw createHttpError('El campo cursoMateriaId es obligatorio.', 400);
+  }
   required('periodoId');
   required('tipo');
 
-  if (payload.cursoMateriaDocenteId !== undefined) {
-    data.cursoMateriaDocenteId = parsePositiveInteger(payload.cursoMateriaDocenteId, 'cursoMateriaDocenteId');
+  if (payload.cursoMateriaId !== undefined) {
+    data.cursoMateriaId = parsePositiveInteger(payload.cursoMateriaId, 'cursoMateriaId');
   }
   if (payload.periodoId !== undefined) {
     data.periodoId = parsePositiveInteger(payload.periodoId, 'periodoId');
@@ -221,7 +224,7 @@ function parsePayload(payload, partial = false) {
 async function ensureUniqueCombination(data, excludeId = null) {
   const duplicated = await prisma.configEvaluacion.findFirst({
     where: {
-      cursoMateriaDocenteId: data.cursoMateriaDocenteId,
+      cursoMateriaId: data.cursoMateriaId,
       periodoId: data.periodoId,
       tipo: data.tipo,
       mes: data.mes ?? null,
@@ -231,7 +234,7 @@ async function ensureUniqueCombination(data, excludeId = null) {
 
   if (duplicated) {
     throw createHttpError(
-      'Ya existe una configuracion para cursoMateriaDocenteId + periodoId + tipo + mes.',
+      'Ya existe una configuracion para cursoMateriaId + periodoId + tipo + mes.',
       400
     );
   }
@@ -261,7 +264,7 @@ async function getConfigEvaluacionById(id) {
 
 async function createConfigEvaluacion(payload, user) {
   const data = parsePayload(payload, false);
-  await ensureReferences(data.cursoMateriaDocenteId, data.periodoId);
+  await ensureReferences(data.cursoMateriaId, data.periodoId);
   await ensureUniqueCombination(data);
 
   const created = await prisma.configEvaluacion.create({
@@ -293,14 +296,15 @@ async function updateConfigEvaluacion({ id, payload, user }) {
   }
 
   const data = parsePayload(payload, true);
+
   const finalData = {
-    cursoMateriaDocenteId: data.cursoMateriaDocenteId ?? current.cursoMateriaDocenteId,
+    cursoMateriaId: data.cursoMateriaId ?? current.cursoMateriaId,
     periodoId: data.periodoId ?? current.periodoId,
     tipo: data.tipo ?? current.tipo,
     mes: data.mes !== undefined ? data.mes : current.mes
   };
 
-  await ensureReferences(finalData.cursoMateriaDocenteId, finalData.periodoId);
+  await ensureReferences(finalData.cursoMateriaId, finalData.periodoId);
   await ensureUniqueCombination(finalData, configId);
 
   return prisma.$transaction(async (tx) => {
@@ -356,4 +360,3 @@ module.exports = {
   updateConfigEvaluacion,
   deleteConfigEvaluacion
 };
-

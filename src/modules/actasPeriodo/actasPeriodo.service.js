@@ -1,4 +1,4 @@
-const prisma = require('../../config/prisma');
+﻿const prisma = require('../../config/prisma');
 const auditLogger = require('../../utils/auditLogger');
 
 const ESTADOS = ['ABIERTA', 'CERRADA', 'FIRMADA'];
@@ -45,16 +45,58 @@ function parseFecha(value, fieldName) {
   return date;
 }
 
+async function resolveAsignacionDocente(cursoMateriaId) {
+  const cursoMateriaIdValue = parsePositiveInteger(cursoMateriaId, 'cursoMateriaId');
+
+  let asignacion = await prisma.cursoMateriaDocente.findFirst({
+    where: { cursoMateriaId: cursoMateriaIdValue, activo: true },
+    include: {
+      cursoMateria: {
+        include: {
+          curso: true,
+          materiaAnual: true
+        }
+      }
+    },
+    orderBy: [{ fechaDesde: 'desc' }, { id: 'desc' }]
+  });
+
+  if (!asignacion) {
+    asignacion = await prisma.cursoMateriaDocente.findFirst({
+      where: { cursoMateriaId: cursoMateriaIdValue },
+      include: {
+        cursoMateria: {
+          include: {
+            curso: true,
+            materiaAnual: true
+          }
+        }
+      },
+      orderBy: [{ fechaDesde: 'desc' }, { id: 'desc' }]
+    });
+  }
+
+  if (!asignacion) {
+    throw createHttpError('No existe asignacion docente para el cursoMateriaId indicado.', 404);
+  }
+
+  return asignacion;
+}
+
 function buildInclude() {
   return {
     cursoMateriaDocente: {
       include: {
-        curso: {
+        cursoMateria: {
           include: {
-            anio: true
+            curso: {
+              include: {
+                anio: true
+              }
+            },
+            materiaAnual: true
           }
         },
-        materiaAnual: true,
         docente: true
       }
     },
@@ -66,35 +108,35 @@ function buildInclude() {
   };
 }
 
-async function ensureReferences(cursoMateriaDocenteId, periodoId) {
-  const [cmd, periodo] = await Promise.all([
-    prisma.cursoMateriaDocente.findUnique({
-      where: { id: cursoMateriaDocenteId },
-      include: {
-        curso: true,
-        materiaAnual: true
-      }
-    }),
+async function ensureReferences(cursoMateriaId, periodoId) {
+  const [asignacion, periodo] = await Promise.all([
+    resolveAsignacionDocente(cursoMateriaId),
     prisma.periodo.findUnique({ where: { id: periodoId } })
   ]);
 
-  if (!cmd) {
-    throw createHttpError('CursoMateriaDocente no encontrado.', 404);
-  }
   if (!periodo) {
     throw createHttpError('Periodo no encontrado.', 404);
   }
 
-  if (cmd.curso.anioId !== periodo.anioId || cmd.materiaAnual.anioId !== periodo.anioId) {
+  const cursoAnioId = asignacion.cursoMateria.curso.anioId;
+  const materiaAnioId = asignacion.cursoMateria.materiaAnual.anioId;
+
+  if (cursoAnioId !== periodo.anioId || materiaAnioId !== periodo.anioId) {
     throw createHttpError(
       'Curso, materia anual y periodo deben pertenecer al mismo anio lectivo.',
       400
     );
   }
+
+  return asignacion;
 }
 
-function buildWhere({ anio, cursoMateriaDocenteId, periodoId, estado }) {
+function buildWhere({ anio, cursoMateriaId, cursoMateriaDocenteId, periodoId, estado }) {
   const and = [];
+
+  if (cursoMateriaDocenteId !== undefined) {
+    throw createHttpError('El parametro cursoMateriaDocenteId ya no es valido. Use cursoMateriaId.', 400);
+  }
 
   if (anio !== undefined && String(anio).trim() !== '') {
     const anioValue = Number(anio);
@@ -110,10 +152,14 @@ function buildWhere({ anio, cursoMateriaDocenteId, periodoId, estado }) {
     });
   }
 
-  if (cursoMateriaDocenteId !== undefined) {
-    const parsed = parseOptionalPositiveInteger(cursoMateriaDocenteId, 'cursoMateriaDocenteId');
+  if (cursoMateriaId !== undefined) {
+    const parsed = parseOptionalPositiveInteger(cursoMateriaId, 'cursoMateriaId');
     if (parsed) {
-      and.push({ cursoMateriaDocenteId: parsed });
+      and.push({
+        cursoMateriaDocente: {
+          cursoMateriaId: parsed
+        }
+      });
     }
   }
 
@@ -154,7 +200,11 @@ async function getActaPeriodoById(id) {
 }
 
 async function createActaPeriodo(payload, user) {
-  const cursoMateriaDocenteId = parsePositiveInteger(payload.cursoMateriaDocenteId, 'cursoMateriaDocenteId');
+  if (payload.cursoMateriaDocenteId !== undefined) {
+    throw createHttpError('El campo cursoMateriaDocenteId ya no es valido. Use cursoMateriaId.', 400);
+  }
+
+  const cursoMateriaId = parsePositiveInteger(payload.cursoMateriaId, 'cursoMateriaId');
   const periodoId = parsePositiveInteger(payload.periodoId, 'periodoId');
   const estado = payload.estado ? parseEstado(payload.estado) : 'ABIERTA';
   const fechaApertura = parseFecha(payload.fechaApertura, 'fechaApertura') || new Date();
@@ -164,10 +214,10 @@ async function createActaPeriodo(payload, user) {
       ? null
       : String(payload.observaciones).trim();
 
-  await ensureReferences(cursoMateriaDocenteId, periodoId);
+  const asignacion = await ensureReferences(cursoMateriaId, periodoId);
 
   const duplicated = await prisma.actaPeriodo.findFirst({
-    where: { cursoMateriaDocenteId, periodoId }
+    where: { cursoMateriaDocenteId: asignacion.id, periodoId }
   });
   if (duplicated) {
     throw createHttpError('Ya existe un ActaPeriodo para el curso/materia y periodo indicado.', 400);
@@ -181,7 +231,7 @@ async function createActaPeriodo(payload, user) {
 
   const created = await prisma.actaPeriodo.create({
     data: {
-      cursoMateriaDocenteId,
+      cursoMateriaDocenteId: asignacion.id,
       periodoId,
       estado,
       fechaApertura,
@@ -217,7 +267,11 @@ async function updateActaPeriodo({ id, payload, user }) {
   const data = {};
 
   if (payload.cursoMateriaDocenteId !== undefined) {
-    data.cursoMateriaDocenteId = parsePositiveInteger(payload.cursoMateriaDocenteId, 'cursoMateriaDocenteId');
+    throw createHttpError('El campo cursoMateriaDocenteId ya no es valido. Use cursoMateriaId.', 400);
+  }
+  if (payload.cursoMateriaId !== undefined) {
+    const asignacion = await resolveAsignacionDocente(payload.cursoMateriaId);
+    data.cursoMateriaDocenteId = asignacion.id;
   }
   if (payload.periodoId !== undefined) {
     data.periodoId = parsePositiveInteger(payload.periodoId, 'periodoId');
@@ -242,7 +296,15 @@ async function updateActaPeriodo({ id, payload, user }) {
   const finalCursoMateriaDocenteId = data.cursoMateriaDocenteId ?? current.cursoMateriaDocenteId;
   const finalPeriodoId = data.periodoId ?? current.periodoId;
 
-  await ensureReferences(finalCursoMateriaDocenteId, finalPeriodoId);
+  const finalCursoMateriaId =
+    data.cursoMateriaDocenteId !== undefined
+      ? (await prisma.cursoMateriaDocente.findUnique({
+          where: { id: data.cursoMateriaDocenteId },
+          select: { cursoMateriaId: true }
+        })).cursoMateriaId
+      : current.cursoMateriaDocente.cursoMateriaId;
+
+  await ensureReferences(finalCursoMateriaId, finalPeriodoId);
 
   const duplicated = await prisma.actaPeriodo.findFirst({
     where: {
@@ -315,4 +377,3 @@ module.exports = {
   updateActaPeriodo,
   deleteActaPeriodo
 };
-

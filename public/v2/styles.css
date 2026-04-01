@@ -9,4 +9,11 @@ button{border:1px solid #8bb2dc;background:#eef5ff;color:#123f70;padding:8px 10p
 .actions{display:flex;gap:8px;flex-wrap:wrap}.status{font-size:13px}.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}
 table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid var(--line);padding:8px;text-align:left;font-size:13px}th{color:#334155;background:#f8fbff}
 .selected-row td{background:#eef6ff}
+.grid-input{width:88px;padding:6px}
+.cell-ok{background:#ecfdf3}
+.cell-warn{background:#fff8e6}
+.cell-bad{background:#ffe9e9;border-color:#e97b7b}
+.row-state.ok{color:var(--ok);font-weight:600}
+.row-state.warn{color:var(--warn);font-weight:600}
+.row-state.bad{color:var(--bad);font-weight:600}
 .login-wrap{min-height:100vh;display:grid;place-items:center}.login-card{width:min(520px,92vw);background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px}

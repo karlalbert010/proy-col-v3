@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
@@ -9,11 +9,15 @@ datasource db {
 }
 
 model AnioLectivo {
-  id        Int      @id @default(autoincrement())
-  anio      Int      @unique
-  estado    Estado   @default(BORRADOR)
-  fechaInicio DateTime?
-  fechaFin    DateTime?
+  id            Int        @id @default(autoincrement())
+  anio          Int        @unique
+  estado        Estado     @default(BORRADOR)
+  fechaInicio   DateTime?
+  fechaFin      DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @default(now()) @updatedAt
+  origen        OrigenDato @default(WEB)
+  deviceId      String?
 
   cursos        Curso[]
   materias      MateriaAnual[]
@@ -23,102 +27,182 @@ model AnioLectivo {
 }
 
 model Alumno {
-  id        Int     @id @default(autoincrement())
-  apellido  String
-  nombre    String
-  dni       String  @unique
-  activo    Boolean @default(true)
+  id         Int        @id @default(autoincrement())
+  apellido   String
+  nombre     String
+  dni        String     @unique
+  activo     Boolean    @default(true)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @default(now()) @updatedAt
+  origen     OrigenDato @default(WEB)
+  deviceId   String?
 
   matriculas Matricula[]
 }
 
 model Curso {
-  id      Int    @id @default(autoincrement())
-  nombre  String
-  anioId  Int
-  anio    AnioLectivo @relation(fields: [anioId], references: [id])
+  id            Int        @id @default(autoincrement())
+  nombre        String
+  anioId        Int
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @default(now()) @updatedAt
+  origen        OrigenDato @default(WEB)
+  deviceId      String?
 
-  matriculas Matricula[]
-  asignaciones CursoMateriaDocente[]
+  anio          AnioLectivo @relation(fields: [anioId], references: [id])
+
+  matriculas    Matricula[]
+  cursoMaterias CursoMateria[]
+
+  @@index([anioId])
 }
 
 model Matricula {
-  id        Int    @id @default(autoincrement())
-  alumnoId  Int
-  cursoId   Int
-  anioLectivoId Int?
-  estado    EstadoMatricula @default(ACTIVA)
-  estado_pago Boolean @default(false)
-  estado_pago_mensual Boolean @default(false)
+  id                  Int             @id @default(autoincrement())
+  alumnoId            Int
+  cursoId             Int
+  anioLectivoId       Int?
+  estado              EstadoMatricula @default(ACTIVA)
+  estado_pago         Boolean         @default(false)
+  estado_pago_mensual Boolean         @default(false)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @default(now()) @updatedAt
+  origen              OrigenDato      @default(WEB)
+  deviceId            String?
 
-  alumno    Alumno @relation(fields: [alumnoId], references: [id])
-  curso     Curso  @relation(fields: [cursoId], references: [id])
-  anioLectivo AnioLectivo? @relation(fields: [anioLectivoId], references: [id])
+  alumno              Alumno       @relation(fields: [alumnoId], references: [id])
+  curso               Curso        @relation(fields: [cursoId], references: [id])
+  anioLectivo         AnioLectivo? @relation(fields: [anioLectivoId], references: [id])
 
-  calificaciones Calificacion[]
-  notasEvaluacion NotaEvaluacion[]
+  calificaciones      Calificacion[]
+  notasEvaluacion     NotaEvaluacion[]
+  sanciones           Sancion[]
+  actitudes           EvaluacionActitud[]
+  inasistencias       Inasistencia[]
+  asistencias         Asistencia[]
 
   @@unique([alumnoId, cursoId])
   @@index([anioLectivoId, estado])
+  @@index([cursoId])
+}
+
+model Asistencia {
+  id          Int        @id @default(autoincrement())
+  matriculaId Int
+  fecha       DateTime   @db.Date
+  presente    Boolean    @default(true)
+  observacion String?    @db.Text
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @default(now()) @updatedAt
+  origen      OrigenDato @default(WEB)
+  deviceId    String?
+
+  matricula   Matricula  @relation(fields: [matriculaId], references: [id], onDelete: Cascade)
+
+  @@unique([matriculaId, fecha])
+  @@index([fecha])
 }
 
 model Materia {
-  id            Int     @id @default(autoincrement())
-  codigoBase    String  @unique
-  descripcion   String?
-  activa        Boolean @default(true)
+  id          Int        @id @default(autoincrement())
+  codigoBase  String     @unique
+  descripcion String?
+  activa      Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @default(now()) @updatedAt
+  origen      OrigenDato @default(WEB)
+  deviceId    String?
 
-  versiones     MateriaAnual[]
+  versiones   MateriaAnual[]
 }
 
 model MateriaAnual {
-  id         Int    @id @default(autoincrement())
-  materiaId  Int
-  anioId     Int
-  nombre     String
-  cargaHoraria Int?
+  id            Int        @id @default(autoincrement())
+  materiaId     Int
+  anioId        Int
+  nombre        String
+  cargaHoraria  Int?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @default(now()) @updatedAt
+  origen        OrigenDato @default(WEB)
+  deviceId      String?
 
-  materia    Materia     @relation(fields: [materiaId], references: [id])
-  anio       AnioLectivo @relation(fields: [anioId], references: [id])
+  materia       Materia      @relation(fields: [materiaId], references: [id])
+  anio          AnioLectivo  @relation(fields: [anioId], references: [id])
 
   calificaciones Calificacion[]
-  asignaciones CursoMateriaDocente[]
+  cursoMaterias  CursoMateria[]
 
   @@unique([materiaId, anioId])
+  @@index([anioId])
+}
+
+model CursoMateria {
+  id                  Int        @id @default(autoincrement())
+  cursoId             Int
+  materiaAnualId      Int
+  activo              Boolean    @default(true)
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @default(now()) @updatedAt
+  origen              OrigenDato @default(WEB)
+  deviceId            String?
+
+  curso               Curso                 @relation(fields: [cursoId], references: [id])
+  materiaAnual        MateriaAnual          @relation(fields: [materiaAnualId], references: [id])
+
+  asignacionesDocente CursoMateriaDocente[]
+  configs             ConfigEvaluacion[]
+  reglasCalculo       ReglaCalculo[]
+
+  @@unique([cursoId, materiaAnualId])
+  @@index([cursoId])
+  @@index([materiaAnualId])
 }
 
 model Periodo {
-  id      Int @id @default(autoincrement())
-  nombre  String
-  orden   Int
-  anioId  Int
-  duracion Duracion @default(TRIMESTRAL)
-  fechaInicio DateTime?
-  fechaFin    DateTime?
+  id            Int        @id @default(autoincrement())
+  nombre        String
+  orden         Int
+  anioId        Int
+  duracion      Duracion   @default(TRIMESTRAL)
+  fechaInicio   DateTime?
+  fechaFin      DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @default(now()) @updatedAt
+  origen        OrigenDato @default(WEB)
+  deviceId      String?
 
-  anio    AnioLectivo @relation(fields: [anioId], references: [id])
+  anio          AnioLectivo @relation(fields: [anioId], references: [id])
 
   calificaciones Calificacion[]
-  evaluaciones  Evaluacion[]
-  actas         ActaTrimestral[]
-  actasPeriodo  ActaPeriodo[]
-  configs       ConfigEvaluacion[]
+  evaluaciones   Evaluacion[]
+  actas          ActaTrimestral[]
+  actasPeriodo   ActaPeriodo[]
+  configs        ConfigEvaluacion[]
+  sanciones      Sancion[]
+  actitudes      EvaluacionActitud[]
+  inasistencias  Inasistencia[]
 
   @@unique([anioId, orden])
+  @@index([anioId])
 }
 
 model Calificacion {
-  id             Int @id @default(autoincrement())
-  matriculaId    Int
-  materiaAnualId Int
-  periodoId      Int
-  nota           Float
-  fecha          DateTime?
+  id               Int        @id @default(autoincrement())
+  matriculaId      Int
+  materiaAnualId   Int
+  periodoId        Int
+  nota             Float
+  fecha            DateTime?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @default(now()) @updatedAt
+  origen           OrigenDato @default(WEB)
+  deviceId         String?
 
-  matricula      Matricula    @relation(fields: [matriculaId], references: [id])
-  materiaAnual   MateriaAnual @relation(fields: [materiaAnualId], references: [id])
-  periodo        Periodo      @relation(fields: [periodoId], references: [id])
-  detalle        CalificacionDetalle?
+  matricula        Matricula    @relation(fields: [matriculaId], references: [id])
+  materiaAnual     MateriaAnual @relation(fields: [materiaAnualId], references: [id])
+  periodo          Periodo      @relation(fields: [periodoId], references: [id])
+  detalle          CalificacionDetalle?
 
   @@unique([matriculaId, materiaAnualId, periodoId])
   @@index([periodoId])
@@ -127,106 +211,219 @@ model Calificacion {
 }
 
 model CalificacionDetalle {
-  id              Int     @id @default(autoincrement())
-  calificacionId  Int     @unique
-  notaOrint1erTrim Float?
-  nota1erTrimMes1  Float?
-  nota1erTrimMes2  Float?
-  nota1erTrimMes3  Float?
-  notaFinal1erTrim Float?
-  recup1erTrim     Float?
-  observ1erTrim    String? @db.Text
-  notaOrint2doTrim Float?
-  nota2doTrimMes1  Float?
-  nota2doTrimMes2  Float?
-  nota2doTrimMes3  Float?
-  notaFinal2doTrim Float?
-  recup2doTrim     Float?
-  observ2doTrim    String? @db.Text
-  notaOrint3erTrim Float?
-  nota3erTrimMes1  Float?
-  nota3erTrimMes2  Float?
-  nota3erTrimMes3  Float?
-  notaFinal3erTrim Float?
-  recup3erTrim     Float?
-  observ3erTrim    String? @db.Text
-  promMensualAnual Float?
-  recupAnual       Float?
-  promAnualCuantit Float?
-  // Campos para bimestrales
-  notaBim1Mes1     Float?
-  notaBim1Mes2     Float?
-  recupBim1        Float?
-  observBim1       String? @db.Text
-  notaBim2Mes1     Float?
-  notaBim2Mes2     Float?
-  recupBim2        Float?
-  observBim2       String? @db.Text
-  acompDic        String? @db.Text
-  acompFeb        String? @db.Text
-  alumConAcomp    String? @db.Text
+  id                     Int         @id @default(autoincrement())
+  calificacionId         Int         @unique
+  notaOrint1erTrim       Float?
+  nota1erTrimMes1        Float?
+  nota1erTrimMes2        Float?
+  nota1erTrimMes3        Float?
+  notaFinal1erTrim       Float?
+  recup1erTrim           Float?
+  observ1erTrim          String?     @db.Text
+  notaOrint2doTrim       Float?
+  nota2doTrimMes1        Float?
+  nota2doTrimMes2        Float?
+  nota2doTrimMes3        Float?
+  notaFinal2doTrim       Float?
+  recup2doTrim           Float?
+  observ2doTrim          String?     @db.Text
+  notaOrint3erTrim       Float?
+  nota3erTrimMes1        Float?
+  nota3erTrimMes2        Float?
+  nota3erTrimMes3        Float?
+  notaFinal3erTrim       Float?
+  recup3erTrim           Float?
+  observ3erTrim          String?     @db.Text
+  promMensualAnual       Float?
+  recupAnual             Float?
+  promAnualCuantit       Float?
+  calificacionDefinitiva Float?
+  createdAt              DateTime    @default(now())
+  updatedAt              DateTime    @default(now()) @updatedAt
+  origen                 OrigenDato  @default(WEB)
+  deviceId               String?
 
-  calificacion    Calificacion @relation(fields: [calificacionId], references: [id], onDelete: Cascade)
+  // Campos para bimestrales
+  notaBim1Mes1           Float?
+  notaBim1Mes2           Float?
+  recupBim1              Float?
+  observBim1             String?     @db.Text
+  notaBim2Mes1           Float?
+  notaBim2Mes2           Float?
+  recupBim2              Float?
+  observBim2             String?     @db.Text
+
+  acompDic               String?     @db.Text
+  acompFeb               String?     @db.Text
+  alumConAcomp           String?     @db.Text
+
+  calificacion           Calificacion @relation(fields: [calificacionId], references: [id], onDelete: Cascade)
+}
+
+model TipoSancion {
+  id          Int       @id @default(autoincrement())
+  nombre      String    @unique
+  descripcion String?   @db.Text
+
+  sanciones   Sancion[]
+}
+
+model Sancion {
+  id            Int       @id @default(autoincrement())
+  matriculaId   Int
+  tipoSancionId Int
+  periodoId     Int
+  fecha         DateTime?
+  descripcion   String?   @db.Text
+  calificacion  Float?
+
+  matricula     Matricula   @relation(fields: [matriculaId], references: [id], onDelete: Cascade)
+  tipoSancion   TipoSancion @relation(fields: [tipoSancionId], references: [id])
+  periodo       Periodo     @relation(fields: [periodoId], references: [id], onDelete: Cascade)
+
+  @@index([matriculaId, periodoId])
+  @@index([tipoSancionId])
+}
+
+model TipoActitud {
+  id            Int                @id @default(autoincrement())
+  nombre        String             @unique
+
+  evaluaciones  EvaluacionActitud[]
+}
+
+model ValorActitud {
+  id            Int                @id @default(autoincrement())
+  descripcion   String             @unique
+  puntaje       Float?
+
+  evaluaciones  EvaluacionActitud[]
+}
+
+model EvaluacionActitud {
+  id             Int        @id @default(autoincrement())
+  matriculaId    Int
+  tipoActitudId  Int
+  valorActitudId Int
+  periodoId      Int
+  observacion    String?    @db.Text
+  calificacion   Float?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @default(now()) @updatedAt
+  origen         OrigenDato @default(WEB)
+  deviceId       String?
+
+  matricula      Matricula    @relation(fields: [matriculaId], references: [id], onDelete: Cascade)
+  tipoActitud    TipoActitud  @relation(fields: [tipoActitudId], references: [id])
+  valorActitud   ValorActitud @relation(fields: [valorActitudId], references: [id])
+  periodo        Periodo      @relation(fields: [periodoId], references: [id], onDelete: Cascade)
+
+  @@unique([matriculaId, tipoActitudId, periodoId])
+  @@index([periodoId])
+}
+
+model Inasistencia {
+  id             Int        @id @default(autoincrement())
+  matriculaId    Int
+  periodoId      Int
+  justificadas   Int        @default(0)
+  injustificadas Int        @default(0)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @default(now()) @updatedAt
+  origen         OrigenDato @default(WEB)
+  deviceId       String?
+
+  matricula      Matricula  @relation(fields: [matriculaId], references: [id], onDelete: Cascade)
+  periodo        Periodo    @relation(fields: [periodoId], references: [id], onDelete: Cascade)
+
+  @@unique([matriculaId, periodoId])
+  @@index([periodoId])
 }
 
 model Usuario {
-  id       Int    @id @default(autoincrement())
-  username String @unique
-  password String
-  rol      Rol
-  activo   Boolean @default(true)
+  id               Int            @id @default(autoincrement())
+  username         String         @unique
+  password         String
+  rol              Rol
+  activo           Boolean        @default(true)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @default(now()) @updatedAt
 
-  docente  Docente?
+  docente          Docente?
+  logs             LogCambio[]
+  syncOperaciones  SyncOperacion[]
 }
 
 model LogCambio {
-  id             Int      @id @default(autoincrement())
-  usuario        String
+  id             Int        @id @default(autoincrement())
+  usuario        String?
+  userId         Int?
   tablaAfectada  String
+  entidad        String?
   idRegistro     Int
   tipoOperacion  Operacion
   valorAnterior  Json?
   valorNuevo     Json?
-  fecha          DateTime @default(now())
+  motivo         String?
+  origen         OrigenDato @default(WEB)
+  deviceId       String?
+  requestId      String?
+  ip             String?
+  fecha          DateTime   @default(now())
+
+  user           Usuario?   @relation(fields: [userId], references: [id])
+
+  @@index([tablaAfectada, idRegistro])
+  @@index([userId, fecha])
+  @@index([requestId])
 }
 
 model Docente {
-  id         Int    @id @default(autoincrement())
-  usuarioId  Int    @unique
-  dni        String @unique
-  apellido   String
-  nombre     String
-  email      String @unique
-  activo     Boolean @default(true)
+  id                 Int        @id @default(autoincrement())
+  usuarioId          Int        @unique
+  dni                String     @unique
+  apellido           String
+  nombre             String
+  email              String     @unique
+  activo             Boolean    @default(true)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @default(now()) @updatedAt
+  origen             OrigenDato @default(WEB)
+  deviceId           String?
 
-  usuario      Usuario @relation(fields: [usuarioId], references: [id])
-  asignaciones CursoMateriaDocente[]
+  usuario            Usuario   @relation(fields: [usuarioId], references: [id])
+  asignaciones       CursoMateriaDocente[]
 }
 
 model CursoMateriaDocente {
-  id             Int @id @default(autoincrement())
-  cursoId        Int
-  materiaAnualId Int
-  docenteId      Int
-  activo         Boolean @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                 Int                    @id @default(autoincrement())
+  cursoMateriaId     Int
+  docenteId          Int
+  tipoAsignacion     TipoAsignacionDocente @default(TITULAR)
+  fechaDesde         DateTime
+  fechaHasta         DateTime?
+  motivoAsignacion   String?
+  observaciones      String?                @db.Text
+  activo             Boolean                @default(true)
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @default(now()) @updatedAt
+  origen             OrigenDato             @default(WEB)
+  deviceId           String?
 
-  curso          Curso       @relation(fields: [cursoId], references: [id])
-  materiaAnual   MateriaAnual @relation(fields: [materiaAnualId], references: [id])
-  docente        Docente     @relation(fields: [docenteId], references: [id])
-  evaluaciones   Evaluacion[]
-  actas          ActaTrimestral[]
-  actasPeriodo   ActaPeriodo[]
-  reglasCalculo  ReglaCalculo[]
-  configs        ConfigEvaluacion[]
+  cursoMateria       CursoMateria @relation(fields: [cursoMateriaId], references: [id])
+  docente            Docente      @relation(fields: [docenteId], references: [id])
 
-  @@unique([cursoId, materiaAnualId])
+  evaluaciones       Evaluacion[]
+  actas              ActaTrimestral[]
+  actasPeriodo       ActaPeriodo[]
+
+  @@index([cursoMateriaId])
   @@index([docenteId])
+  @@index([fechaDesde, fechaHasta])
 }
 
 model Evaluacion {
-  id                    Int @id @default(autoincrement())
+  id                    Int             @id @default(autoincrement())
   cursoMateriaDocenteId Int
   periodoId             Int
   configEvaluacionId    Int?
@@ -234,11 +431,13 @@ model Evaluacion {
   tipo                  TipoEvaluacion
   fecha                 DateTime
   titulo                String
-  descripcion           String? @db.Text
+  descripcion           String?         @db.Text
   ponderacion           Float?
   estado                EstadoEvaluacion @default(ABIERTA)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @default(now()) @updatedAt
+  origen                OrigenDato      @default(WEB)
+  deviceId              String?
 
   cursoMateriaDocente   CursoMateriaDocente @relation(fields: [cursoMateriaDocenteId], references: [id])
   periodo               Periodo             @relation(fields: [periodoId], references: [id])
@@ -249,51 +448,59 @@ model Evaluacion {
 
   @@index([cursoMateriaDocenteId, periodoId])
   @@index([evaluacionPadreId])
+  @@index([configEvaluacionId])
 }
 
 model NotaEvaluacion {
-  id           Int @id @default(autoincrement())
-  evaluacionId Int
-  matriculaId  Int
-  nota         Float?
-  observacion  String? @db.Text
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id            Int        @id @default(autoincrement())
+  evaluacionId  Int
+  matriculaId   Int
+  nota          Float?
+  observacion   String?    @db.Text
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @default(now()) @updatedAt
+  origen        OrigenDato @default(WEB)
+  deviceId      String?
 
-  evaluacion   Evaluacion @relation(fields: [evaluacionId], references: [id], onDelete: Cascade)
-  matricula    Matricula  @relation(fields: [matriculaId], references: [id], onDelete: Cascade)
+  evaluacion    Evaluacion @relation(fields: [evaluacionId], references: [id], onDelete: Cascade)
+  matricula     Matricula  @relation(fields: [matriculaId], references: [id], onDelete: Cascade)
 
   @@unique([evaluacionId, matriculaId])
   @@index([matriculaId])
 }
 
 model ActaTrimestral {
-  id                    Int @id @default(autoincrement())
+  id                    Int        @id @default(autoincrement())
   cursoMateriaDocenteId Int
   periodoId             Int
   estado                EstadoActa @default(ABIERTA)
-  fechaApertura         DateTime @default(now())
+  fechaApertura         DateTime   @default(now())
   fechaCierre           DateTime?
-  observaciones         String? @db.Text
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  observaciones         String?    @db.Text
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @default(now()) @updatedAt
+  origen                OrigenDato @default(WEB)
+  deviceId              String?
 
   cursoMateriaDocente   CursoMateriaDocente @relation(fields: [cursoMateriaDocenteId], references: [id])
   periodo               Periodo             @relation(fields: [periodoId], references: [id])
 
   @@unique([cursoMateriaDocenteId, periodoId])
+  @@index([periodoId])
 }
 
 model ActaPeriodo {
-  id                    Int @id @default(autoincrement())
+  id                    Int        @id @default(autoincrement())
   cursoMateriaDocenteId Int
   periodoId             Int
   estado                EstadoActa @default(ABIERTA)
-  fechaApertura         DateTime @default(now())
+  fechaApertura         DateTime   @default(now())
   fechaCierre           DateTime?
-  observaciones         String? @db.Text
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  observaciones         String?    @db.Text
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @default(now()) @updatedAt
+  origen                OrigenDato @default(WEB)
+  deviceId              String?
 
   cursoMateriaDocente   CursoMateriaDocente @relation(fields: [cursoMateriaDocenteId], references: [id])
   periodo               Periodo             @relation(fields: [periodoId], references: [id])
@@ -302,46 +509,75 @@ model ActaPeriodo {
   @@index([periodoId, estado])
 }
 
-// Configuracion pedagogica por curso/materia y periodo para planificar parciales/recuperatorios.
 model ConfigEvaluacion {
-  id                    Int @id @default(autoincrement())
-  cursoMateriaDocenteId Int
-  periodoId             Int
-  mes                   Int?
-  tipo                  TipoEvaluacion
-  cantidadEvaluaciones  Int @default(1)
-  ponderacion           Float?
-  recuperatorioHabilitado Boolean @default(false)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                      Int        @id @default(autoincrement())
+  cursoMateriaId          Int
+  periodoId               Int
+  mes                     Int?
+  tipo                    TipoEvaluacion
+  cantidadEvaluaciones    Int        @default(1)
+  ponderacion             Float?
+  recuperatorioHabilitado Boolean    @default(false)
+  createdAt               DateTime   @default(now())
+  updatedAt               DateTime   @default(now()) @updatedAt
+  origen                  OrigenDato @default(WEB)
+  deviceId                String?
 
-  cursoMateriaDocente   CursoMateriaDocente @relation(fields: [cursoMateriaDocenteId], references: [id])
-  periodo               Periodo             @relation(fields: [periodoId], references: [id])
-  evaluaciones          Evaluacion[]
+  cursoMateria            CursoMateria @relation(fields: [cursoMateriaId], references: [id])
+  periodo                 Periodo      @relation(fields: [periodoId], references: [id])
+  evaluaciones            Evaluacion[]
 
-  @@unique([cursoMateriaDocenteId, periodoId, tipo, mes])
+  @@unique([cursoMateriaId, periodoId, tipo, mes])
+  @@index([periodoId])
 }
 
 model ReglaCalculo {
-  id                    Int @id @default(autoincrement())
-  anioLectivoId         Int
-  cursoMateriaDocenteId Int?
-  duracion              Duracion
-  estrategia            EstrategiaCalculo
-  ponderacionRegular    Float?   @default(1)
-  ponderacionRecuperatorio Float? @default(1)
-  minAprobacion         Float?   @default(6)
-  decimales             Int?     @default(2)
-  activa                Boolean  @default(true)
-  observaciones         String?  @db.Text
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                       Int              @id @default(autoincrement())
+  anioLectivoId            Int
+  cursoMateriaId           Int?
+  duracion                 Duracion
+  estrategia               EstrategiaCalculo
+  ponderacionRegular       Float?           @default(1)
+  ponderacionRecuperatorio Float?           @default(1)
+  minAprobacion            Float?           @default(6)
+  decimales                Int?             @default(2)
+  activa                   Boolean          @default(true)
+  observaciones            String?          @db.Text
+  createdAt                DateTime         @default(now())
+  updatedAt                DateTime         @default(now()) @updatedAt
+  origen                   OrigenDato       @default(WEB)
+  deviceId                 String?
 
-  anioLectivo           AnioLectivo          @relation(fields: [anioLectivoId], references: [id])
-  cursoMateriaDocente   CursoMateriaDocente? @relation(fields: [cursoMateriaDocenteId], references: [id])
+  anioLectivo              AnioLectivo      @relation(fields: [anioLectivoId], references: [id])
+  cursoMateria             CursoMateria?    @relation(fields: [cursoMateriaId], references: [id])
 
   @@index([anioLectivoId, duracion, activa])
-  @@index([cursoMateriaDocenteId, activa])
+  @@index([cursoMateriaId, activa])
+}
+
+model SyncOperacion {
+  id             Int        @id @default(autoincrement())
+  idempotencyKey String     @unique
+  entity         String
+  operation      String
+  origen         OrigenDato @default(WEB)
+  userId         Int?
+  deviceId       String?
+  request        Json?
+  resultado      Json
+  statusCode     Int        @default(200)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @default(now()) @updatedAt
+
+  user           Usuario?   @relation(fields: [userId], references: [id])
+
+  @@index([entity, operation])
+  @@index([userId, createdAt])
+}
+
+enum OrigenDato {
+  WEB
+  MOBILE
 }
 
 enum Estado {
@@ -411,4 +647,12 @@ enum EstrategiaCalculo {
   MAX_CON_RECUP
   PONDERADO
   ULTIMA_NOTA
+}
+
+enum TipoAsignacionDocente {
+  TITULAR
+  SUPLENTE
+  REEMPLAZO_TEMPORAL
+  APOYO
+  OTRO
 }

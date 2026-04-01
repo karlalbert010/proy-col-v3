@@ -29,15 +29,23 @@ async function getAsignaciones({ anio, cursoId, materiaAnualId, docenteId, activ
     if (!Number.isInteger(anioValue)) {
       throw createHttpError('El parametro anio debe ser numerico.', 400);
     }
-    where.materiaAnual = { anio: { anio: anioValue } };
+    where.cursoMateria = {
+      curso: { anio: { anio: anioValue } }
+    };
   }
 
   if (cursoId !== undefined && cursoId !== null && String(cursoId).trim() !== '') {
-    where.cursoId = parsePositiveInteger(cursoId, 'cursoId');
+    where.cursoMateria = {
+      ...(where.cursoMateria || {}),
+      cursoId: parsePositiveInteger(cursoId, 'cursoId')
+    };
   }
 
   if (materiaAnualId !== undefined && materiaAnualId !== null && String(materiaAnualId).trim() !== '') {
-    where.materiaAnualId = parsePositiveInteger(materiaAnualId, 'materiaAnualId');
+    where.cursoMateria = {
+      ...(where.cursoMateria || {}),
+      materiaAnualId: parsePositiveInteger(materiaAnualId, 'materiaAnualId')
+    };
   }
 
   if (docenteId !== undefined && docenteId !== null && String(docenteId).trim() !== '') {
@@ -51,11 +59,18 @@ async function getAsignaciones({ anio, cursoId, materiaAnualId, docenteId, activ
   return prisma.cursoMateriaDocente.findMany({
     where,
     include: {
-      curso: { include: { anio: true } },
-      materiaAnual: { include: { materia: true, anio: true } },
+      cursoMateria: {
+        include: {
+          curso: { include: { anio: true } },
+          materiaAnual: { include: { materia: true, anio: true } }
+        }
+      },
       docente: { include: { usuario: true } }
     },
-    orderBy: [{ curso: { nombre: 'asc' } }, { materiaAnual: { nombre: 'asc' } }]
+    orderBy: [
+      { cursoMateria: { curso: { nombre: 'asc' } } },
+      { cursoMateria: { materiaAnual: { nombre: 'asc' } } }
+    ]
   });
 }
 

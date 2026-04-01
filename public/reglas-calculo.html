@@ -18,7 +18,7 @@
           <div><label>ID</label><input id="idValue" value="1" /></div>
           <div><label>Query manual (opcional)</label><input id="queryValue" placeholder="?anioLectivoId=2&activa=true" /></div>
           <div><label>Filtro anioLectivoId</label><input id="anioLectivoIdFilter" placeholder="2" /></div>
-          <div><label>Filtro cursoMateriaDocenteId</label><input id="cmdFilter" placeholder="13" /></div>
+          <div><label>Filtro cursoMateriaId</label><input id="cursoMateriaFilter" placeholder="7" /></div>
           <div>
             <label>Filtro duracion</label>
             <select id="duracionFilter">
@@ -43,7 +43,7 @@
         <label style="margin-top: 10px">Body JSON</label>
         <textarea id="bodyValue">{
   "anioLectivoId": 2,
-  "cursoMateriaDocenteId": null,
+  "cursoMateriaId": null,
   "duracion": "TRIMESTRAL",
   "estrategia": "MAX_CON_RECUP",
   "ponderacionRegular": 1,
@@ -86,12 +86,12 @@
       function getAutoQuery() {
         const params = new URLSearchParams();
         const anioLectivoId = document.getElementById('anioLectivoIdFilter').value.trim();
-        const cmd = document.getElementById('cmdFilter').value.trim();
+        const cursoMateriaId = document.getElementById('cursoMateriaFilter').value.trim();
         const duracion = document.getElementById('duracionFilter').value.trim();
         const activa = document.getElementById('activaFilter').value.trim();
 
         if (anioLectivoId) params.set('anioLectivoId', anioLectivoId);
-        if (cmd) params.set('cursoMateriaDocenteId', cmd);
+        if (cursoMateriaId) params.set('cursoMateriaId', cursoMateriaId);
         if (duracion) params.set('duracion', duracion);
         if (activa) params.set('activa', activa);
 
@@ -115,4 +115,3 @@
     </script>
   </body>
 </html>
-

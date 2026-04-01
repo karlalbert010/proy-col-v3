@@ -1,4 +1,4 @@
-const prisma = require('../../config/prisma');
+﻿const prisma = require('../../config/prisma');
 const auditLogger = require('../../utils/auditLogger');
 
 const TIPOS = [
@@ -72,12 +72,54 @@ function parseFecha(value, fieldName) {
   return date;
 }
 
+async function resolveAsignacionDocente(cursoMateriaId) {
+  const cursoMateriaIdValue = parsePositiveInteger(cursoMateriaId, 'cursoMateriaId');
+
+  let asignacion = await prisma.cursoMateriaDocente.findFirst({
+    where: { cursoMateriaId: cursoMateriaIdValue, activo: true },
+    include: {
+      cursoMateria: {
+        include: {
+          curso: true,
+          materiaAnual: true
+        }
+      }
+    },
+    orderBy: [{ fechaDesde: 'desc' }, { id: 'desc' }]
+  });
+
+  if (!asignacion) {
+    asignacion = await prisma.cursoMateriaDocente.findFirst({
+      where: { cursoMateriaId: cursoMateriaIdValue },
+      include: {
+        cursoMateria: {
+          include: {
+            curso: true,
+            materiaAnual: true
+          }
+        }
+      },
+      orderBy: [{ fechaDesde: 'desc' }, { id: 'desc' }]
+    });
+  }
+
+  if (!asignacion) {
+    throw createHttpError('No existe asignacion docente para el cursoMateriaId indicado.', 404);
+  }
+
+  return asignacion;
+}
+
 function buildInclude() {
   return {
     cursoMateriaDocente: {
       include: {
-        curso: { include: { anio: true } },
-        materiaAnual: true,
+        cursoMateria: {
+          include: {
+            curso: { include: { anio: true } },
+            materiaAnual: true
+          }
+        },
         docente: true
       }
     },
@@ -91,34 +133,29 @@ function buildInclude() {
   };
 }
 
-async function ensureReferences({
-  cursoMateriaDocenteId,
-  periodoId,
-  configEvaluacionId,
-  evaluacionPadreId
-}) {
-  const [cmd, periodo, config, padre] = await Promise.all([
-    prisma.cursoMateriaDocente.findUnique({
-      where: { id: cursoMateriaDocenteId },
-      include: { curso: true, materiaAnual: true }
-    }),
+async function ensureReferences({ cursoMateriaId, periodoId, configEvaluacionId, evaluacionPadreId }) {
+  const [asignacion, periodo, config, padre] = await Promise.all([
+    resolveAsignacionDocente(cursoMateriaId),
     prisma.periodo.findUnique({ where: { id: periodoId } }),
     configEvaluacionId
       ? prisma.configEvaluacion.findUnique({ where: { id: configEvaluacionId } })
       : null,
     evaluacionPadreId
-      ? prisma.evaluacion.findUnique({ where: { id: evaluacionPadreId } })
+      ? prisma.evaluacion.findUnique({
+          where: { id: evaluacionPadreId },
+          include: { cursoMateriaDocente: { select: { cursoMateriaId: true } } }
+        })
       : null
   ]);
 
-  if (!cmd) {
-    throw createHttpError('CursoMateriaDocente no encontrado.', 404);
-  }
   if (!periodo) {
     throw createHttpError('Periodo no encontrado.', 404);
   }
 
-  if (cmd.curso.anioId !== periodo.anioId || cmd.materiaAnual.anioId !== periodo.anioId) {
+  const cursoAnioId = asignacion.cursoMateria.curso.anioId;
+  const materiaAnioId = asignacion.cursoMateria.materiaAnual.anioId;
+
+  if (cursoAnioId !== periodo.anioId || materiaAnioId !== periodo.anioId) {
     throw createHttpError(
       'Curso, materia anual y periodo deben pertenecer al mismo anio lectivo.',
       400
@@ -126,32 +163,32 @@ async function ensureReferences({
   }
 
   if (config) {
-    if (
-      config.cursoMateriaDocenteId !== cursoMateriaDocenteId ||
-      config.periodoId !== periodoId
-    ) {
+    if (config.cursoMateriaId !== asignacion.cursoMateriaId || config.periodoId !== periodoId) {
       throw createHttpError(
-        'ConfigEvaluacion debe pertenecer al mismo cursoMateriaDocente y periodo.',
+        'ConfigEvaluacion debe pertenecer al mismo cursoMateria y periodo.',
         400
       );
     }
   }
 
   if (padre) {
-    if (
-      padre.cursoMateriaDocenteId !== cursoMateriaDocenteId ||
-      padre.periodoId !== periodoId
-    ) {
+    if (padre.cursoMateriaDocente.cursoMateriaId !== asignacion.cursoMateriaId || padre.periodoId !== periodoId) {
       throw createHttpError(
-        'Evaluacion padre debe pertenecer al mismo cursoMateriaDocente y periodo.',
+        'Evaluacion padre debe pertenecer al mismo cursoMateria y periodo.',
         400
       );
     }
   }
+
+  return asignacion;
 }
 
 function buildWhere(filters) {
   const and = [];
+
+  if (filters.cursoMateriaDocenteId !== undefined) {
+    throw createHttpError('El parametro cursoMateriaDocenteId ya no es valido. Use cursoMateriaId.', 400);
+  }
 
   if (filters.anio !== undefined && String(filters.anio).trim() !== '') {
     const anio = Number(filters.anio);
@@ -167,10 +204,14 @@ function buildWhere(filters) {
     });
   }
 
-  if (filters.cursoMateriaDocenteId !== undefined) {
-    const cmd = parseNullablePositiveInteger(filters.cursoMateriaDocenteId, 'cursoMateriaDocenteId');
-    if (cmd) {
-      and.push({ cursoMateriaDocenteId: cmd });
+  if (filters.cursoMateriaId !== undefined) {
+    const cursoMateriaId = parseNullablePositiveInteger(filters.cursoMateriaId, 'cursoMateriaId');
+    if (cursoMateriaId) {
+      and.push({
+        cursoMateriaDocente: {
+          cursoMateriaId
+        }
+      });
     }
   }
 
@@ -193,8 +234,12 @@ function buildWhere(filters) {
 }
 
 function parseCreatePayload(payload) {
+  if (payload.cursoMateriaDocenteId !== undefined) {
+    throw createHttpError('El campo cursoMateriaDocenteId ya no es valido. Use cursoMateriaId.', 400);
+  }
+
   const data = {
-    cursoMateriaDocenteId: parsePositiveInteger(payload.cursoMateriaDocenteId, 'cursoMateriaDocenteId'),
+    cursoMateriaId: parsePositiveInteger(payload.cursoMateriaId, 'cursoMateriaId'),
     periodoId: parsePositiveInteger(payload.periodoId, 'periodoId'),
     configEvaluacionId: parseNullablePositiveInteger(payload.configEvaluacionId, 'configEvaluacionId'),
     evaluacionPadreId: parseNullablePositiveInteger(payload.evaluacionPadreId, 'evaluacionPadreId'),
@@ -217,9 +262,13 @@ function parseCreatePayload(payload) {
 }
 
 function parseUpdatePayload(payload) {
-  const data = {};
   if (payload.cursoMateriaDocenteId !== undefined) {
-    data.cursoMateriaDocenteId = parsePositiveInteger(payload.cursoMateriaDocenteId, 'cursoMateriaDocenteId');
+    throw createHttpError('El campo cursoMateriaDocenteId ya no es valido. Use cursoMateriaId.', 400);
+  }
+
+  const data = {};
+  if (payload.cursoMateriaId !== undefined) {
+    data.cursoMateriaId = parsePositiveInteger(payload.cursoMateriaId, 'cursoMateriaId');
   }
   if (payload.periodoId !== undefined) {
     data.periodoId = parsePositiveInteger(payload.periodoId, 'periodoId');
@@ -281,10 +330,21 @@ async function getEvaluacionById(id) {
 
 async function createEvaluacion(payload, user) {
   const data = parseCreatePayload(payload);
-  await ensureReferences(data);
+  const asignacion = await ensureReferences(data);
 
   const created = await prisma.evaluacion.create({
-    data,
+    data: {
+      cursoMateriaDocenteId: asignacion.id,
+      periodoId: data.periodoId,
+      configEvaluacionId: data.configEvaluacionId,
+      evaluacionPadreId: data.evaluacionPadreId,
+      tipo: data.tipo,
+      fecha: data.fecha,
+      titulo: data.titulo,
+      descripcion: data.descripcion,
+      ponderacion: data.ponderacion,
+      estado: data.estado
+    },
     include: buildInclude()
   });
 
@@ -313,7 +373,7 @@ async function updateEvaluacion({ id, payload, user }) {
 
   const data = parseUpdatePayload(payload);
   const refs = {
-    cursoMateriaDocenteId: data.cursoMateriaDocenteId ?? current.cursoMateriaDocenteId,
+    cursoMateriaId: data.cursoMateriaId ?? current.cursoMateriaDocente.cursoMateriaId,
     periodoId: data.periodoId ?? current.periodoId,
     configEvaluacionId:
       data.configEvaluacionId !== undefined ? data.configEvaluacionId : current.configEvaluacionId,
@@ -325,7 +385,9 @@ async function updateEvaluacion({ id, payload, user }) {
     throw createHttpError('Una evaluacion no puede ser su propia evaluacion padre.', 400);
   }
 
-  await ensureReferences(refs);
+  const asignacion = await ensureReferences(refs);
+  data.cursoMateriaDocenteId = asignacion.id;
+  delete data.cursoMateriaId;
 
   return prisma.$transaction(async (tx) => {
     const updated = await tx.evaluacion.update({
@@ -380,4 +442,3 @@ module.exports = {
   updateEvaluacion,
   deleteEvaluacion
 };
-

@@ -61,23 +61,26 @@ function parseEnum(value, fieldName, allowedValues) {
   return normalized;
 }
 
-async function ensureReferences({ anioLectivoId, cursoMateriaDocenteId }) {
+async function ensureReferences({ anioLectivoId, cursoMateriaId }) {
   const anio = await prisma.anioLectivo.findUnique({ where: { id: anioLectivoId } });
   if (!anio) {
     throw createHttpError('Anio lectivo no encontrado.', 404);
   }
 
-  if (cursoMateriaDocenteId) {
-    const cmd = await prisma.cursoMateriaDocente.findUnique({
-      where: { id: cursoMateriaDocenteId },
+  if (cursoMateriaId) {
+    const cursoMateria = await prisma.cursoMateria.findUnique({
+      where: { id: cursoMateriaId },
       include: { curso: true, materiaAnual: true }
     });
-    if (!cmd) {
-      throw createHttpError('CursoMateriaDocente no encontrado.', 404);
+    if (!cursoMateria) {
+      throw createHttpError('CursoMateria no encontrado.', 404);
     }
-    if (cmd.curso.anioId !== anioLectivoId || cmd.materiaAnual.anioId !== anioLectivoId) {
+    if (
+      cursoMateria.curso.anioId !== anioLectivoId ||
+      cursoMateria.materiaAnual.anioId !== anioLectivoId
+    ) {
       throw createHttpError(
-        'CursoMateriaDocente debe pertenecer al mismo anio lectivo de la regla.',
+        'CursoMateria debe pertenecer al mismo anio lectivo de la regla.',
         400
       );
     }
@@ -90,11 +93,8 @@ function buildWhere(filters) {
   if (filters.anioLectivoId !== undefined) {
     where.anioLectivoId = parsePositiveInteger(filters.anioLectivoId, 'anioLectivoId');
   }
-  if (filters.cursoMateriaDocenteId !== undefined) {
-    where.cursoMateriaDocenteId = parseNullablePositiveInteger(
-      filters.cursoMateriaDocenteId,
-      'cursoMateriaDocenteId'
-    );
+  if (filters.cursoMateriaId !== undefined) {
+    where.cursoMateriaId = parseNullablePositiveInteger(filters.cursoMateriaId, 'cursoMateriaId');
   }
   if (filters.duracion !== undefined && String(filters.duracion).trim() !== '') {
     where.duracion = parseEnum(filters.duracion, 'duracion', DURACIONES);
@@ -109,7 +109,7 @@ function buildWhere(filters) {
 function buildInclude() {
   return {
     anioLectivo: true,
-    cursoMateriaDocente: {
+    cursoMateria: {
       include: {
         curso: true,
         materiaAnual: true
@@ -119,12 +119,13 @@ function buildInclude() {
 }
 
 function parseCreatePayload(payload) {
+  if (payload.cursoMateriaDocenteId !== undefined) {
+    throw createHttpError('El campo cursoMateriaDocenteId ya no es valido. Use cursoMateriaId.', 400);
+  }
+
   const data = {
     anioLectivoId: parsePositiveInteger(payload.anioLectivoId, 'anioLectivoId'),
-    cursoMateriaDocenteId: parseNullablePositiveInteger(
-      payload.cursoMateriaDocenteId,
-      'cursoMateriaDocenteId'
-    ),
+    cursoMateriaId: parseNullablePositiveInteger(payload.cursoMateriaId, 'cursoMateriaId'),
     duracion: parseEnum(payload.duracion, 'duracion', DURACIONES),
     estrategia: parseEnum(payload.estrategia, 'estrategia', ESTRATEGIAS),
     ponderacionRegular: parseNullableNumber(payload.ponderacionRegular, 'ponderacionRegular'),
@@ -145,16 +146,17 @@ function parseCreatePayload(payload) {
 }
 
 function parseUpdatePayload(payload) {
+  if (payload.cursoMateriaDocenteId !== undefined) {
+    throw createHttpError('El campo cursoMateriaDocenteId ya no es valido. Use cursoMateriaId.', 400);
+  }
+
   const data = {};
 
   if (payload.anioLectivoId !== undefined) {
     data.anioLectivoId = parsePositiveInteger(payload.anioLectivoId, 'anioLectivoId');
   }
-  if (payload.cursoMateriaDocenteId !== undefined) {
-    data.cursoMateriaDocenteId = parseNullablePositiveInteger(
-      payload.cursoMateriaDocenteId,
-      'cursoMateriaDocenteId'
-    );
+  if (payload.cursoMateriaId !== undefined) {
+    data.cursoMateriaId = parseNullablePositiveInteger(payload.cursoMateriaId, 'cursoMateriaId');
   }
   if (payload.duracion !== undefined) {
     data.duracion = parseEnum(payload.duracion, 'duracion', DURACIONES);
@@ -196,7 +198,7 @@ async function getReglasCalculo(filters) {
   return prisma.reglaCalculo.findMany({
     where: buildWhere(filters),
     include: buildInclude(),
-    orderBy: [{ anioLectivoId: 'asc' }, { cursoMateriaDocenteId: 'asc' }, { id: 'desc' }]
+    orderBy: [{ anioLectivoId: 'asc' }, { cursoMateriaId: 'asc' }, { id: 'desc' }]
   });
 }
 
@@ -249,7 +251,7 @@ async function updateReglaCalculo({ id, payload, user }) {
   const data = parseUpdatePayload(payload);
   const refs = {
     anioLectivoId: data.anioLectivoId ?? current.anioLectivoId,
-    cursoMateriaDocenteId: data.cursoMateriaDocenteId ?? current.cursoMateriaDocenteId
+    cursoMateriaId: data.cursoMateriaId ?? current.cursoMateriaId
   };
   await ensureReferences(refs);
 
@@ -306,4 +308,3 @@ module.exports = {
   updateReglaCalculo,
   deleteReglaCalculo
 };
-

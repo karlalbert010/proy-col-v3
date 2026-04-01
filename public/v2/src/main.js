@@ -99,6 +99,91 @@ function getPromedioMeses(payload, fields) {
   return Number((notas.reduce((acc, n) => acc + n, 0) / notas.length).toFixed(2));
 }
 
+const GRADE_MIN = 1;
+const GRADE_MAX = 10;
+
+function validateGradeField(value, { required = false } = {}) {
+  if (value === null || value === undefined || value === '') {
+    return required
+      ? { kind: 'bad', message: 'Dato obligatorio.' }
+      : { kind: 'warn', message: 'Pendiente de carga.' };
+  }
+  if (!Number.isFinite(value)) {
+    return { kind: 'bad', message: 'Debe ser numerico.' };
+  }
+  if (value < GRADE_MIN || value > GRADE_MAX) {
+    return { kind: 'bad', message: `Fuera de rango (${GRADE_MIN}-${GRADE_MAX}).` };
+  }
+  return { kind: 'ok', message: 'OK' };
+}
+
+function getRowValidation(row) {
+  const cell = {
+    notaOrientadora: validateGradeField(row.notaOrientadora, { required: false }),
+    notaMes1: validateGradeField(row.notaMes1, { required: false }),
+    notaMes2: validateGradeField(row.notaMes2, { required: false }),
+    notaMes3: validateGradeField(row.notaMes3, { required: false }),
+    recuperatorio: validateGradeField(row.recuperatorio, { required: false })
+  };
+
+  const errors = Object.entries(cell)
+    .filter(([, value]) => value.kind === 'bad')
+    .map(([key, value]) => `${key}: ${value.message}`);
+  const loadedMonthly = [row.notaMes1, row.notaMes2, row.notaMes3].filter((x) => Number.isFinite(x)).length;
+
+  if (errors.length > 0) {
+    return { cell, rowKind: 'bad', rowLabel: 'Rojo: errores', errors };
+  }
+  if (loadedMonthly === 3) {
+    return { cell, rowKind: 'ok', rowLabel: 'Verde: completo', errors: [] };
+  }
+  return {
+    cell,
+    rowKind: 'warn',
+    rowLabel: `Amarillo: pendiente (${loadedMonthly}/3 meses)`,
+    errors: []
+  };
+}
+
+function applySelectedRowToEditor(row) {
+  calState.selected = row;
+  document.getElementById('calSelMatriculaId').value = String(row.matriculaId);
+  document.getElementById('calSelAlumno').value = row.alumno;
+  document.getElementById('calNotaOrientadora').value = row.notaOrientadora ?? '';
+  document.getElementById('calNotaMes1').value = row.notaMes1 ?? '';
+  document.getElementById('calNotaMes2').value = row.notaMes2 ?? '';
+  document.getElementById('calNotaMes3').value = row.notaMes3 ?? '';
+  document.getElementById('calRecuperatorio').value = row.recuperatorio ?? '';
+}
+
+function recomputeRowDerived(row) {
+  const average = [row.notaMes1, row.notaMes2, row.notaMes3].filter((x) => Number.isFinite(x));
+  const prom = average.length ? Number((average.reduce((acc, n) => acc + n, 0) / average.length).toFixed(2)) : null;
+  const finalTrim = Number.isFinite(row.recuperatorio) && Number.isFinite(prom)
+    ? Math.max(row.recuperatorio, prom)
+    : Number.isFinite(row.recuperatorio)
+      ? row.recuperatorio
+      : prom;
+  row.notaFinal = Number.isFinite(finalTrim) ? Number(finalTrim.toFixed(2)) : null;
+  row.validation = getRowValidation(row);
+}
+
+function updateRowFromGridInput(row, field, rawValue) {
+  const value = asNumberOrNull(rawValue);
+  row[field] = value;
+  recomputeRowDerived(row);
+}
+
+function syncSelectedFromEditor() {
+  if (!calState.selected) return;
+  calState.selected.notaOrientadora = asNumberOrNull(document.getElementById('calNotaOrientadora').value);
+  calState.selected.notaMes1 = asNumberOrNull(document.getElementById('calNotaMes1').value);
+  calState.selected.notaMes2 = asNumberOrNull(document.getElementById('calNotaMes2').value);
+  calState.selected.notaMes3 = asNumberOrNull(document.getElementById('calNotaMes3').value);
+  calState.selected.recuperatorio = asNumberOrNull(document.getElementById('calRecuperatorio').value);
+  recomputeRowDerived(calState.selected);
+}
+
 function renderCalGrid() {
   const wrap = document.getElementById('calGridWrap');
   if (!wrap) return;
@@ -111,17 +196,26 @@ function renderCalGrid() {
   const rows = calState.rows
     .map((row) => {
       const selectedClass = calState.selected && calState.selected.matriculaId === row.matriculaId ? ' class="selected-row"' : '';
+      const validation = row.validation || getRowValidation(row);
+      const errorLine = validation.errors.length
+        ? `<div class="status bad">${validation.errors.join(' | ')}</div>`
+        : '';
       return `<tr${selectedClass}>
         <td><button data-select="${row.matriculaId}" class="primary">Seleccionar</button></td>
         <td>${row.alumno}</td>
-        <td>${row.notaOrientadora ?? ''}</td>
-        <td>${row.notaMes1 ?? ''}</td>
-        <td>${row.notaMes2 ?? ''}</td>
-        <td>${row.notaMes3 ?? ''}</td>
-        <td>${row.recuperatorio ?? ''}</td>
+        <td><input class="grid-input cell-${validation.cell.notaOrientadora.kind}" data-field="notaOrientadora" data-matricula="${row.matriculaId}" value="${row.notaOrientadora ?? ''}" /></td>
+        <td><input class="grid-input cell-${validation.cell.notaMes1.kind}" data-field="notaMes1" data-matricula="${row.matriculaId}" value="${row.notaMes1 ?? ''}" /></td>
+        <td><input class="grid-input cell-${validation.cell.notaMes2.kind}" data-field="notaMes2" data-matricula="${row.matriculaId}" value="${row.notaMes2 ?? ''}" /></td>
+        <td><input class="grid-input cell-${validation.cell.notaMes3.kind}" data-field="notaMes3" data-matricula="${row.matriculaId}" value="${row.notaMes3 ?? ''}" /></td>
+        <td><input class="grid-input cell-${validation.cell.recuperatorio.kind}" data-field="recuperatorio" data-matricula="${row.matriculaId}" value="${row.recuperatorio ?? ''}" /></td>
         <td>${row.notaFinal ?? ''}</td>
-        <td>${row.detalleId ? 'Con detalle' : 'Sin detalle'}</td>
-      </tr>`;
+        <td>
+          <div class="row-state ${validation.rowKind}">${validation.rowLabel}</div>
+          ${row.detalleId ? '<div class="status ok">Con detalle</div>' : '<div class="status warn">Sin detalle</div>'}
+          ${errorLine}
+        </td>
+      </tr>
+      `;
     })
     .join('');
 
@@ -147,15 +241,22 @@ function renderCalGrid() {
       const matriculaId = Number(button.getAttribute('data-select'));
       const row = calState.rows.find((x) => x.matriculaId === matriculaId);
       if (!row) return;
-      calState.selected = row;
-      document.getElementById('calSelMatriculaId').value = String(row.matriculaId);
-      document.getElementById('calSelAlumno').value = row.alumno;
-      document.getElementById('calNotaOrientadora').value = row.notaOrientadora ?? '';
-      document.getElementById('calNotaMes1').value = row.notaMes1 ?? '';
-      document.getElementById('calNotaMes2').value = row.notaMes2 ?? '';
-      document.getElementById('calNotaMes3').value = row.notaMes3 ?? '';
-      document.getElementById('calRecuperatorio').value = row.recuperatorio ?? '';
+      applySelectedRowToEditor(row);
       setStatus('calCrudStatus', `Alumno seleccionado: ${row.alumno}`, 'ok');
+      renderCalGrid();
+    });
+  });
+
+  wrap.querySelectorAll('input[data-field][data-matricula]').forEach((input) => {
+    input.addEventListener('input', () => {
+      const matriculaId = Number(input.getAttribute('data-matricula'));
+      const field = input.getAttribute('data-field');
+      const row = calState.rows.find((x) => x.matriculaId === matriculaId);
+      if (!row) return;
+      updateRowFromGridInput(row, field, input.value);
+      if (calState.selected && calState.selected.matriculaId === row.matriculaId) {
+        applySelectedRowToEditor(row);
+      }
       renderCalGrid();
     });
   });
@@ -292,7 +393,7 @@ async function loadCalGrid() {
     const prom = promedio.length ? Number((promedio.reduce((acc, n) => acc + n, 0) / promedio.length).toFixed(2)) : null;
     const finalTrim = Number.isFinite(recup) && Number.isFinite(prom) ? Math.max(recup, prom) : Number.isFinite(recup) ? recup : prom;
 
-    return {
+    const row = {
       matriculaId: m.id,
       alumno: `${m.alumno.apellido}, ${m.alumno.nombre}`,
       calificacionId: c?.id || null,
@@ -304,6 +405,8 @@ async function loadCalGrid() {
       recuperatorio: recup,
       notaFinal: Number.isFinite(finalTrim) ? Number(finalTrim.toFixed(2)) : null
     };
+    row.validation = getRowValidation(row);
+    return row;
   });
 
   calState.selected = null;
@@ -320,6 +423,12 @@ async function loadCalGrid() {
 async function saveSelectedCalificacion() {
   if (!calState.selected) {
     throw new Error('Selecciona un alumno de la grilla.');
+  }
+
+  syncSelectedFromEditor();
+  calState.selected.validation = getRowValidation(calState.selected);
+  if (calState.selected.validation.rowKind === 'bad') {
+    throw new Error(`Fila con errores: ${calState.selected.validation.errors.join(' | ')}`);
   }
 
   const anio = document.getElementById('calAnio').value.trim();

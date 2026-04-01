@@ -31,7 +31,7 @@
         <h2>Grilla minima</h2>
         <div class="grid two">
           <div><label>Filtro anio</label><input id="anioFilter" placeholder="2025" /></div>
-          <div><label>Filtro cursoMateriaDocenteId</label><input id="cmdFilter" placeholder="13" /></div>
+          <div><label>Filtro cursoMateriaId</label><input id="cursoMateriaFilter" placeholder="7" /></div>
           <div><label>Filtro periodoId</label><input id="periodoFilter" placeholder="4" /></div>
           <div>
             <label>Filtro tipo</label>
@@ -84,7 +84,7 @@
         </div>
         <label style="margin-top: 10px">Body JSON</label>
         <textarea id="bodyValue">{
-  "cursoMateriaDocenteId": 13,
+  "cursoMateriaId": 7,
   "periodoId": 4,
   "mes": 3,
   "tipo": "PARCIAL",
@@ -141,11 +141,11 @@
       function getAutoQuery() {
         const params = new URLSearchParams();
         const anio = document.getElementById('anioFilter').value.trim();
-        const cmd = document.getElementById('cmdFilter').value.trim();
+        const cursoMateriaId = document.getElementById('cursoMateriaFilter').value.trim();
         const periodoId = document.getElementById('periodoFilter').value.trim();
         const tipo = document.getElementById('tipoFilter').value.trim();
         if (anio) params.set('anio', anio);
-        if (cmd) params.set('cursoMateriaDocenteId', cmd);
+        if (cursoMateriaId) params.set('cursoMateriaId', cursoMateriaId);
         if (periodoId) params.set('periodoId', periodoId);
         if (tipo) params.set('tipo', tipo);
         const query = params.toString();
@@ -161,8 +161,8 @@
         body.innerHTML = items
           .map((row) => {
             const anio = row?.periodo?.anio?.anio ?? '';
-            const curso = row?.cursoMateriaDocente?.curso?.nombre ?? '';
-            const materia = row?.cursoMateriaDocente?.materiaAnual?.nombre ?? '';
+            const curso = row?.cursoMateria?.curso?.nombre ?? '';
+            const materia = row?.cursoMateria?.materiaAnual?.nombre ?? '';
             const periodo = row?.periodo?.nombre ?? '';
             return `<tr>
               <td>${row.id}</td>
