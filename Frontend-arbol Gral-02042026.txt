@@ -1,0 +1,618 @@
+==============================================================
+FRONTEND - ARBOL GENERAL DE NAVEGACION Y FLUJO
+Sistema Colegio - PC / Profesor / Administrativo / Directivo
+==============================================================
+
+OBJETIVO GENERAL
+- Que cada item se ingrese mediante formularios CRUD.
+- Reutilizar la mayor cantidad posible de código.
+- Dar acceso rápido desde menú principal a los items de mayor uso.
+- Adaptar el menú según el rol del usuario.
+- Permitir flujo fluido para operador PC, profesor, directivo y admin.
+
+==============================================================
+1. ESTRUCTURA GENERAL DEL FRONTEND
+==============================================================
+
+APP
+├── Login
+│   ├── Ingreso usuario / password
+│   ├── Validación
+│   ├── Obtención de token
+│   └── Redirección según rol
+│
+├── Layout Principal
+│   ├── Header
+│   │   ├── Logo / nombre sistema
+│   │   ├── Año lectivo activo
+│   │   ├── Usuario logueado
+│   │   ├── Rol
+│   │   ├── Notificaciones
+│   │   └── Cerrar sesión
+│   │
+│   ├── Sidebar / Menú lateral
+│   │   ├── Inicio / Dashboard
+│   │   ├── Accesos rápidos
+│   │   ├── Académico
+│   │   ├── Asistencia
+│   │   ├── Calificaciones
+│   │   ├── Actas
+│   │   ├── Disciplina / Sanciones
+│   │   ├── Actitudinal
+│   │   ├── Administración
+│   │   ├── Configuración
+│   │   ├── Auditoría / Logs
+│   │   └── Sincronización
+│   │
+│   └── Área de trabajo
+│       ├── Dashboard
+│       ├── Pantallas CRUD
+│       ├── Grillas
+│       ├── Formularios
+│       ├── Detalles
+│       └── Reportes
+│
+└── Componentes Base Reutilizables
+    ├── CrudPageBase
+    ├── DataTableBase
+    ├── FormBase
+    ├── DetailViewBase
+    ├── FiltersBar
+    ├── SearchBox
+    ├── StatusBadge
+    ├── QuickActions
+    ├── ConfirmDialog
+    ├── Toast / Alertas
+    ├── TabsModulo
+    └── PermissionGuard
+
+==============================================================
+2. PRINCIPIO CLAVE DE REUTILIZACION
+==============================================================
+
+Todo item del sistema debe derivar de un patrón base:
+
+Entidad
+ ├── Listar
+ ├── Crear
+ ├── Editar
+ ├── Ver detalle
+ ├── Activar / Desactivar
+ └── Eliminar (si la regla de negocio lo permite)
+
+Plantilla estándar de módulo CRUD:
+├── /modulo/list
+├── /modulo/new
+├── /modulo/:id
+├── /modulo/:id/edit
+└── /modulo/:id/history   (si aplica logs)
+
+Componentes reutilizables:
+- Tabla reutilizable con columnas configurables
+- Formulario reutilizable por schema
+- Validaciones reutilizables
+- Botonera CRUD reutilizable
+- Selector de curso / año / período reutilizable
+- Selector de docente / alumno / materia reutilizable
+- Modal de confirmación reutilizable
+- Badges de estado reutilizables
+
+==============================================================
+3. MENU PRINCIPAL POR FRECUENCIA DE USO
+==============================================================
+
+3.1 MENU PRINCIPAL - PROFESOR
+Inicio
+├── Mis cursos y materias
+├── Cargar notas
+├── Cargar asistencia
+├── Evaluaciones
+├── Actas de período
+├── Observaciones
+└── Mi perfil
+
+Frecuencia alta para profesor:
+1. Mis cursos y materias
+2. Cargar notas
+3. Cargar asistencia
+4. Evaluaciones
+5. Actas
+
+--------------------------------------------------------------
+
+3.2 MENU PRINCIPAL - ADMINISTRATIVO / OPERADOR PC
+Inicio
+├── Alumnos
+├── Matrículas
+├── Cursos
+├── Docentes
+├── Asistencia
+├── Consulta académica
+├── Sanciones
+├── Actitudinal
+├── Reportes
+└── Mi perfil
+
+Frecuencia alta para operador:
+1. Alumnos
+2. Matrículas
+3. Cursos
+4. Consulta académica
+5. Asistencia
+
+--------------------------------------------------------------
+
+3.3 MENU PRINCIPAL - DIRECTIVO
+Inicio
+├── Panel general
+├── Seguimiento académico
+├── Actas
+├── Reportes
+├── Sanciones
+├── Actitudinal
+├── Auditoría
+└── Configuración académica
+
+Frecuencia alta para directivo:
+1. Panel general
+2. Seguimiento académico
+3. Actas
+4. Reportes
+5. Auditoría
+
+--------------------------------------------------------------
+
+3.4 MENU PRINCIPAL - ADMIN DEL SISTEMA
+Inicio
+├── Usuarios
+├── Roles y permisos
+├── Año lectivo
+├── Cursos
+├── Materias
+├── Curso-Materia
+├── Docentes
+├── Configuración de evaluación
+├── Reglas de cálculo
+├── Logs / auditoría
+├── Sincronización
+└── Parámetros generales
+
+==============================================================
+4. ARBOL FUNCIONAL POR MODULOS
+==============================================================
+
+INICIO / DASHBOARD
+├── Indicadores rápidos
+│   ├── Año lectivo activo
+│   ├── Cantidad de alumnos activos
+│   ├── Matrículas activas
+│   ├── Actas abiertas
+│   ├── Evaluaciones abiertas
+│   └── Alertas
+│
+├── Accesos rápidos
+│   ├── Nuevo alumno
+│   ├── Nueva matrícula
+│   ├── Cargar asistencia
+│   ├── Cargar notas
+│   ├── Abrir acta
+│   └── Buscar alumno
+│
+└── Actividad reciente
+    ├── Últimos cambios
+    ├── Pendientes
+    └── Errores / advertencias
+
+--------------------------------------------------------------
+
+ACADEMICO
+├── Años lectivos
+│   ├── Listar
+│   ├── Crear
+│   ├── Editar
+│   └── Activar / cerrar
+│
+├── Cursos
+│   ├── Listar
+│   ├── Crear
+│   ├── Editar
+│   ├── Ver materias del curso
+│   └── Ver matrículas
+│
+├── Materias
+│   ├── Materias base
+│   ├── Materias anuales
+│   ├── Crear
+│   ├── Editar
+│   └── Activar / desactivar
+│
+├── Curso-Materia
+│   ├── Listar asignaciones
+│   ├── Asociar materia a curso
+│   ├── Quitar asociación
+│   ├── Activar / desactivar
+│   └── Ver docentes asignados
+│
+├── Períodos
+│   ├── Listar
+│   ├── Crear
+│   ├── Editar
+│   └── Cerrar período
+│
+└── Reglas académicas
+    ├── Configuración de evaluación
+    ├── Reglas de cálculo
+    └── Parámetros por curso-materia
+
+--------------------------------------------------------------
+
+ALUMNOS
+├── Listado de alumnos
+│   ├── Buscar
+│   ├── Filtrar
+│   ├── Ordenar
+│   └── Exportar
+│
+├── Alta alumno
+├── Editar alumno
+├── Ficha alumno
+│   ├── Datos personales
+│   ├── Matrículas
+│   ├── Asistencia
+│   ├── Calificaciones
+│   ├── Sanciones
+│   ├── Actitudinal
+│   └── Historial
+│
+└── Acciones rápidas
+    ├── Matricular
+    ├── Ver boletín
+    ├── Ver inasistencias
+    └── Ver observaciones
+
+--------------------------------------------------------------
+
+MATRICULAS
+├── Listado de matrículas
+├── Nueva matrícula
+├── Editar matrícula
+├── Cambiar estado
+│   ├── Activa
+│   └── Baja
+│
+├── Ver estado académico
+├── Ver alertas de deuda
+└── Ver trayectoria del alumno
+
+--------------------------------------------------------------
+
+DOCENTES
+├── Listado de docentes
+├── Alta docente
+├── Editar docente
+├── Ficha docente
+│   ├── Datos personales
+│   ├── Usuario asociado
+│   ├── Asignaciones
+│   └── Historial
+│
+└── Asignaciones docente
+    ├── Asignar curso-materia
+    ├── Definir tipo de asignación
+    ├── Fecha desde / hasta
+    ├── Titular / suplente / apoyo
+    └── Activar / finalizar asignación
+
+--------------------------------------------------------------
+
+CALIFICACIONES
+├── Vista rápida profesor
+│   ├── Seleccionar curso
+│   ├── Seleccionar materia
+│   ├── Seleccionar período
+│   └── Ver grilla
+│
+├── Carga por grilla
+│   ├── Lista de alumnos
+│   ├── Columnas por evaluación
+│   ├── Ingreso rápido
+│   ├── Guardado masivo
+│   └── Validación visual
+│
+├── Evaluaciones
+│   ├── Crear evaluación
+│   ├── Editar evaluación
+│   ├── Cerrar evaluación
+│   └── Cargar notas
+│
+├── Calificación final
+│   ├── Ver detalle por alumno
+│   ├── Recalcular
+│   ├── Aplicar regla
+│   └── Confirmar cierre
+│
+└── Consulta histórica
+    ├── Por alumno
+    ├── Por curso
+    ├── Por materia
+    └── Por período
+
+--------------------------------------------------------------
+
+ASISTENCIA
+├── Carga diaria
+│   ├── Seleccionar curso
+│   ├── Seleccionar fecha
+│   ├── Marcar presentes
+│   ├── Marcar ausentes
+│   └── Guardar
+│
+├── Consulta por alumno
+├── Consulta por curso
+├── Resumen por período
+└── Justificaciones / observaciones
+
+--------------------------------------------------------------
+
+SANCIONES
+├── Tipos de sanción
+│   ├── Listar
+│   ├── Crear
+│   └── Editar
+│
+├── Registro de sanciones
+│   ├── Nueva sanción
+│   ├── Editar
+│   ├── Consultar por alumno
+│   ├── Consultar por período
+│   └── Historial
+│
+└── Reporte disciplinario
+
+--------------------------------------------------------------
+
+ACTITUDINAL
+├── Tipos de actitud
+├── Valores de actitud
+├── Registro por alumno
+├── Consulta por período
+└── Reportes
+
+--------------------------------------------------------------
+
+ACTAS
+├── Actas abiertas
+├── Actas cerradas
+├── Abrir acta
+├── Cerrar acta
+├── Firmar acta
+└── Consultar histórico
+
+--------------------------------------------------------------
+
+USUARIOS Y SEGURIDAD
+├── Usuarios
+│   ├── Listar
+│   ├── Crear
+│   ├── Editar
+│   ├── Activar / desactivar
+│   └── Reset password
+│
+├── Roles
+│   ├── Admin
+│   ├── Docente
+│   ├── Directivo
+│   ├── Administrativo
+│   ├── Preceptor
+│   └── Otros
+│
+└── Permisos
+    ├── Permisos por módulo
+    ├── Permisos por acción
+    └── Restricciones por rol
+
+--------------------------------------------------------------
+
+AUDITORIA Y TRAZABILIDAD
+├── Logs de cambios
+├── Historial por registro
+├── Filtros por usuario
+├── Filtros por tabla
+├── Filtros por fecha
+└── Detalle antes / después
+
+--------------------------------------------------------------
+
+SINCRONIZACION
+├── Operaciones pendientes
+├── Historial de sync
+├── Estado del dispositivo
+├── Reintentos
+└── Errores de sincronización
+
+==============================================================
+5. FLUJO PRINCIPAL DE USO - PROFESOR
+==============================================================
+
+Login
+→ Dashboard Profesor
+→ Mis cursos y materias
+→ Selecciona curso-materia
+→ Selecciona período
+→ Elige acción:
+   ├── Cargar asistencia
+   ├── Crear evaluación
+   ├── Cargar notas
+   ├── Revisar calificaciones
+   └── Abrir / cerrar acta
+→ Guardar
+→ Confirmación visual
+→ Volver a dashboard o siguiente curso
+
+==============================================================
+6. FLUJO PRINCIPAL DE USO - OPERADOR ADMINISTRATIVO
+==============================================================
+
+Login
+→ Dashboard Administrativo
+→ Elige acción rápida:
+   ├── Buscar alumno
+   ├── Alta alumno
+   ├── Nueva matrícula
+   ├── Consultar curso
+   └── Registrar asistencia / sanción / observación
+→ Guarda cambios
+→ Ve historial o vuelve al dashboard
+
+==============================================================
+7. FLUJO PRINCIPAL DE USO - DIRECTIVO
+==============================================================
+
+Login
+→ Dashboard Directivo
+→ Panel general
+→ Consulta:
+   ├── Rendimiento académico
+   ├── Actas
+   ├── Inasistencias
+   ├── Sanciones
+   ├── Reportes
+   └── Auditoría
+→ Toma decisión
+→ Exporta / cierra / firma / observa
+
+==============================================================
+8. DISEÑO DE PANTALLAS CRUD REUTILIZABLES
+==============================================================
+
+Cada pantalla CRUD debe tener:
+
+CABECERA
+├── Título módulo
+├── Breadcrumb
+├── Acciones rápidas
+└── Estado actual
+
+CUERPO
+├── Barra de filtros
+├── Tabla o grilla
+├── Paginación
+├── Acciones por fila
+└── Panel lateral opcional de detalle
+
+FORMULARIO
+├── Campos principales
+├── Validación inline
+├── Botones Guardar / Guardar y seguir / Cancelar
+└── Mensajes de error claros
+
+PIE
+├── Estado de guardado
+├── Usuario que modificó
+└── Fecha de última modificación
+
+==============================================================
+9. COMPONENTES QUE DEBERIAN EXISTIR SI O SI
+==============================================================
+
+BASE UI
+├── AppShell
+├── SidebarMenu
+├── Topbar
+├── RoleMenuBuilder
+├── QuickAccessPanel
+├── EntityTable
+├── EntityForm
+├── EntityDetails
+├── EntityToolbar
+├── EmptyState
+├── LoadingState
+├── ErrorState
+└── ProtectedRoute
+
+COMPONENTES DE NEGOCIO
+├── SelectorAnioLectivo
+├── SelectorCurso
+├── SelectorPeriodo
+├── SelectorMateria
+├── SelectorCursoMateria
+├── SelectorDocente
+├── SelectorAlumno
+├── BadgeEstado
+├── BadgeRol
+├── CardResumenAcademico
+├── GrillaCalificaciones
+├── GrillaAsistencia
+├── CardActa
+├── TimelineHistorial
+└── ViewerLogCambio
+
+==============================================================
+10. ORDEN RECOMENDADO DE DESARROLLO DEL FRONTEND
+==============================================================
+
+FASE 1
+├── Login
+├── Layout principal
+├── Menú lateral por rol
+├── Dashboard básico
+└── Protección de rutas
+
+FASE 2
+├── CRUD Usuarios
+├── CRUD Docentes
+├── CRUD Alumnos
+├── CRUD Cursos
+├── CRUD Materias
+└── CRUD Curso-Materia
+
+FASE 3
+├── CRUD Matrículas
+├── CRUD Períodos
+├── Asignaciones Docente
+└── Consultas básicas
+
+FASE 4
+├── Módulo Asistencia
+├── Módulo Evaluaciones
+├── Módulo Notas
+└── Grilla rápida para profesor
+
+FASE 5
+├── Actas
+├── Sanciones
+├── Actitudinal
+├── Logs
+└── Sincronización
+
+==============================================================
+11. CRITERIO DE FLUIDEZ DE INTERACCION
+==============================================================
+
+Para que la interacción sea fluida:
+- Menú siempre visible en PC.
+- Accesos rápidos arriba del dashboard.
+- Búsqueda global de alumno / docente / curso.
+- Menos clics para tareas frecuentes.
+- Formularios cortos y claros.
+- Grillas rápidas en carga masiva.
+- Persistencia de filtros usados.
+- Recordar último curso/período usado por profesor.
+- Botones contextuales según rol.
+- Feedback inmediato al guardar.
+
+==============================================================
+12. IDEA CENTRAL DEL FRONTEND
+==============================================================
+
+EL FRONTEND NO DEBE SER UNA COLECCION DE PANTALLAS AISLADAS.
+
+DEBE SER:
+- modular,
+- reutilizable,
+- orientado a roles,
+- orientado a frecuencia de uso,
+- con CRUD base para todas las entidades,
+- con grillas rápidas para operaciones masivas,
+- y con navegación simple desde un menú principal inteligente.
+==============================================================

@@ -19,6 +19,7 @@ const reglasCalculoRoutes = require('./modules/reglasCalculo/reglasCalculo.route
 const actasPeriodoRoutes = require('./modules/actasPeriodo/actasPeriodo.routes');
 const configEvaluacionRoutes = require('./modules/configEvaluacion/configEvaluacion.routes');
 const evaluacionesRoutes = require('./modules/evaluaciones/evaluaciones.routes');
+const asistenciaRoutes = require('./modules/asistencia/asistencia.routes');
 const errorMiddleware = require('./middlewares/errorMiddleware');
 
 const app = express();
@@ -31,6 +32,10 @@ app.get('/health', (_req, res) => {
     success: true,
     data: { status: 'ok' }
   });
+});
+
+app.get('/', (_req, res) => {
+  return res.redirect('/v2/index.html');
 });
 
 app.use('/auth', authRoutes);
@@ -51,6 +56,7 @@ app.use('/reglas-calculo', reglasCalculoRoutes);
 app.use('/actas-periodo', actasPeriodoRoutes);
 app.use('/config-evaluacion', configEvaluacionRoutes);
 app.use('/evaluaciones', evaluacionesRoutes);
+app.use('/asistencia', asistenciaRoutes);
 
 app.use((_req, res) => {
   return res.status(404).json({

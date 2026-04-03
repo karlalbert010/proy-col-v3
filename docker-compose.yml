@@ -1,9 +1,11 @@
-﻿services:
+﻿name: cole-api-v3
+
+services:
   api:
     build:
       context: .
       target: production
-    container_name: cole_api
+    container_name: cole_api_v3
     restart: unless-stopped
     env_file:
       - .env
@@ -11,7 +13,7 @@
       NODE_ENV: production
       PORT: ${PORT:-3000}
     ports:
-      - "${API_PORT:-3001}:3000"
+      - "${API_PORT:-3003}:3000"
     depends_on:
       db:
         condition: service_healthy
@@ -24,15 +26,15 @@
 
   db:
     image: mysql:8.0.44
-    container_name: cole_db
+    container_name: cole_db_v3
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-cole_db}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-cole_db_v3}
     ports:
-      - "3310:3306"
+      - "${DB_PORT:-3312}:3306"
     volumes:
-      - db_data:/var/lib/mysql
+      - db_data_v3:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-root}"]
       interval: 10s
@@ -41,4 +43,4 @@
       start_period: 30s
 
 volumes:
-  db_data:
+  db_data_v3:

@@ -1,1 +1,9 @@
-﻿export function cursosView(){ return `<div class="card"><h2>Cursos</h2><p>Gestion academica resumida.</p></div>`; }
+﻿import { crudPageBase } from '../../components/CrudPageBase.js';
+
+export function cursosView() {
+  return crudPageBase({
+    key: 'cursosCrud',
+    title: 'Cursos',
+    description: 'CRUD de cursos (nombre y anio lectivo).'
+  });
+}

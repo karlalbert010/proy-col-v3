@@ -1,8 +1,11 @@
-import { store } from './store/index.js';
+﻿import { store } from './store/index.js';
 import { login } from './services/auth.service.js';
 import { renderView } from './router/index.js';
 import { calificacionesService } from './services/calificaciones.service.js';
 import { asistenciaService } from './services/asistencia.service.js';
+import { crudService } from './services/crud.service.js';
+import { entityTable } from './components/EntityTable.js';
+import { entityForm } from './components/EntityForm.js';
 
 const app = document.getElementById('app');
 
@@ -12,6 +15,11 @@ const calState = {
   periodos: [],
   rows: [],
   selected: null
+};
+
+const asiState = {
+  cursos: [],
+  rows: []
 };
 
 function shell(content) {
@@ -24,6 +32,9 @@ function shell(content) {
     ['control', 'Control'],
     ['alumnos', 'Alumnos'],
     ['cursos', 'Cursos'],
+    ['anios', 'Anios'],
+    ['materiasCrud', 'Materias'],
+    ['usuarios', 'Usuarios'],
     ['configuracion', 'Configuracion']
   ];
   return `<div class="layout"><aside class="side"><h1>Cole v2</h1>${items
@@ -270,6 +281,108 @@ function fillSelect(selectId, items, toValue, toLabel, placeholder = 'Selecciona
     opts.push(`<option value="${toValue(item)}">${toLabel(item)}</option>`);
   });
   select.innerHTML = opts.join('');
+}
+
+function renderAsistenciaGrid() {
+  const wrap = document.getElementById('asiGridWrap');
+  if (!wrap) return;
+
+  if (!asiState.rows.length) {
+    wrap.innerHTML = '<p class="status warn">Sin alumnos para el curso/fecha seleccionados.</p>';
+    return;
+  }
+
+  const rowsHtml = asiState.rows
+    .map((row) => {
+      return `<tr>
+        <td>${row.alumno}</td>
+        <td>${row.dni || '-'}</td>
+        <td><input type="checkbox" data-asi-check="${row.matriculaId}" ${row.presente ? 'checked' : ''} /></td>
+        <td><input data-asi-obs="${row.matriculaId}" value="${row.observacion || ''}" /></td>
+      </tr>`;
+    })
+    .join('');
+
+  wrap.innerHTML = `<table>
+    <thead>
+      <tr>
+        <th>Alumno</th>
+        <th>DNI</th>
+        <th>Presente</th>
+        <th>Observacion</th>
+      </tr>
+    </thead>
+    <tbody>${rowsHtml}</tbody>
+  </table>`;
+
+  wrap.querySelectorAll('input[data-asi-check]').forEach((input) => {
+    input.addEventListener('change', () => {
+      const matriculaId = Number(input.getAttribute('data-asi-check'));
+      const row = asiState.rows.find((x) => x.matriculaId === matriculaId);
+      if (!row) return;
+      row.presente = Boolean(input.checked);
+    });
+  });
+
+  wrap.querySelectorAll('input[data-asi-obs]').forEach((input) => {
+    input.addEventListener('input', () => {
+      const matriculaId = Number(input.getAttribute('data-asi-obs'));
+      const row = asiState.rows.find((x) => x.matriculaId === matriculaId);
+      if (!row) return;
+      row.observacion = input.value;
+    });
+  });
+}
+
+async function loadAsistenciaCursos() {
+  const anio = document.getElementById('asiAnio')?.value?.trim();
+  const out = await asistenciaService.getCursos(anio ? { anio } : {});
+  asiState.cursos = out.data || [];
+  fillSelect('asiCurso', asiState.cursos, (x) => x.id, (x) => `${x.nombre} (id:${x.id})`, 'Seleccionar curso');
+}
+
+async function loadAsistenciaContexto() {
+  const cursoId = document.getElementById('asiCurso')?.value;
+  const fecha = document.getElementById('asiFecha')?.value;
+  if (!cursoId || !fecha) {
+    throw new Error('Completa curso y fecha.');
+  }
+
+  const out = await asistenciaService.getContexto({ cursoId, fecha });
+  const alumnos = out.data?.alumnos || [];
+  asiState.rows = alumnos
+    .map((a) => ({
+      matriculaId: a.matriculaId,
+      alumno: `${a.apellido}, ${a.nombre}`,
+      dni: a.dni,
+      presente: a.presente === undefined ? true : Boolean(a.presente),
+      observacion: a.observacion || ''
+    }))
+    .sort((a, b) => a.alumno.localeCompare(b.alumno));
+  renderAsistenciaGrid();
+}
+
+async function saveAsistencia() {
+  const cursoId = Number(document.getElementById('asiCurso')?.value);
+  const fecha = document.getElementById('asiFecha')?.value;
+  if (!Number.isInteger(cursoId) || !fecha) {
+    throw new Error('Completa curso y fecha antes de guardar.');
+  }
+  if (!asiState.rows.length) {
+    throw new Error('No hay filas cargadas para guardar.');
+  }
+
+  const payload = {
+    cursoId,
+    fecha,
+    items: asiState.rows.map((row) => ({
+      matriculaId: row.matriculaId,
+      presente: row.presente,
+      observacion: row.observacion || null
+    }))
+  };
+
+  await asistenciaService.guardar(payload);
 }
 
 async function loadCalFilters() {
@@ -534,6 +647,358 @@ async function bindCalificacionesActions() {
   }
 }
 
+const simpleCrudConfigs = {
+  alumnosCrud: {
+    endpoint: 'alumnos',
+    filters: [
+      { name: 'alumnoId', label: 'AlumnoId', type: 'number', placeholder: 'Opcional' },
+      { name: 'apellidoAlumno', label: 'ApellidoAlumno', type: 'text', placeholder: 'Opcional' },
+      { name: 'nombreAlumno', label: 'NombreAlumno', type: 'text', placeholder: 'Opcional' },
+      { name: 'nombreCurso', label: 'nombreCurso', type: 'text', placeholder: 'Opcional' }
+    ],
+    buildQuery: (filters) => {
+      const query = {};
+      if (filters.nombreCurso) query.curso = filters.nombreCurso;
+      return query;
+    },
+    clientFilter: (rows, filters) => {
+      const norm = (v) => String(v || '').trim().toUpperCase();
+      const idFilter = Number(filters.alumnoId);
+      const apellidoFilter = norm(filters.apellidoAlumno);
+      const nombreFilter = norm(filters.nombreAlumno);
+      return (rows || []).filter((r) => {
+        if (Number.isInteger(idFilter) && idFilter > 0 && r.id !== idFilter) return false;
+        if (apellidoFilter && !norm(r.apellido).includes(apellidoFilter)) return false;
+        if (nombreFilter && !norm(r.nombre).includes(nombreFilter)) return false;
+        return true;
+      });
+    },
+    fields: [
+      { name: 'apellido', label: 'Apellido', type: 'text' },
+      { name: 'nombre', label: 'Nombre', type: 'text' },
+      { name: 'dni', label: 'DNI', type: 'text' },
+      { name: 'activo', label: 'Activo', type: 'checkbox' }
+    ],
+    columns: [
+      { key: 'id', label: 'ID' },
+      { key: 'apellido', label: 'Apellido' },
+      { key: 'nombre', label: 'Nombre' },
+      { key: 'dni', label: 'DNI' },
+      { key: 'activo', label: 'Activo', render: (r) => (r.activo ? 'SI' : 'NO') }
+    ]
+  },
+  cursosCrud: {
+    endpoint: 'cursos',
+    filters: [
+      { name: 'anio', label: 'Anio', type: 'number', placeholder: 'Ej: 2025' },
+      { name: 'estado', label: 'Estado anio', type: 'text', placeholder: 'BORRADOR/ACTIVO/CERRADO' }
+    ],
+    fields: [
+      { name: 'nombre', label: 'Nombre', type: 'text' },
+      { name: 'anioId', label: 'Anio ID', type: 'number' }
+    ],
+    columns: [
+      { key: 'id', label: 'ID' },
+      { key: 'nombre', label: 'Nombre' },
+      { key: 'anioId', label: 'Anio ID' },
+      { key: 'anio', label: 'Anio', render: (r) => r.anio?.anio ?? '' },
+      { key: 'estado', label: 'Estado', render: (r) => r.anio?.estado ?? '' }
+    ]
+  },
+  aniosCrud: {
+    endpoint: 'anios',
+    filters: [
+      { name: 'anio', label: 'Anio', type: 'number', placeholder: 'Ej: 2025' },
+      {
+        name: 'estado',
+        label: 'Estado',
+        type: 'select',
+        options: [
+          { value: '', label: 'Todos' },
+          { value: 'BORRADOR', label: 'BORRADOR' },
+          { value: 'ACTIVO', label: 'ACTIVO' },
+          { value: 'CERRADO', label: 'CERRADO' }
+        ]
+      }
+    ],
+    fields: [
+      { name: 'anio', label: 'Anio', type: 'number' },
+      {
+        name: 'estado',
+        label: 'Estado',
+        type: 'select',
+        options: [
+          { value: 'BORRADOR', label: 'BORRADOR' },
+          { value: 'ACTIVO', label: 'ACTIVO' },
+          { value: 'CERRADO', label: 'CERRADO' }
+        ]
+      }
+    ],
+    columns: [
+      { key: 'id', label: 'ID' },
+      { key: 'anio', label: 'Anio' },
+      { key: 'estado', label: 'Estado' }
+    ],
+    onUpdate: async (id, payload, row) => {
+      await crudService.update('anios', id, { anio: Number(payload.anio) });
+      if (payload.estado && payload.estado !== row.estado) {
+        await crudService.patch('anios', id, 'estado', { estado: payload.estado });
+      }
+    }
+  },
+  materiasCrud: {
+    endpoint: 'materias',
+    filters: [
+      {
+        name: 'activa',
+        label: 'Activa',
+        type: 'select',
+        options: [
+          { value: '', label: 'Todas' },
+          { value: 'true', label: 'SI' },
+          { value: 'false', label: 'NO' }
+        ]
+      },
+      { name: 'anio', label: 'Anio', type: 'number', placeholder: 'Opcional' }
+    ],
+    fields: [
+      { name: 'codigoBase', label: 'Codigo base', type: 'text' },
+      { name: 'descripcion', label: 'Descripcion', type: 'text' },
+      { name: 'activa', label: 'Activa', type: 'checkbox' }
+    ],
+    columns: [
+      { key: 'id', label: 'ID' },
+      { key: 'codigoBase', label: 'Codigo' },
+      { key: 'descripcion', label: 'Descripcion' },
+      { key: 'activa', label: 'Activa', render: (r) => (r.activa ? 'SI' : 'NO') }
+    ]
+  },
+  usuariosCrud: {
+    endpoint: 'usuarios',
+    filters: [],
+    fields: [
+      { name: 'username', label: 'Username', type: 'text' },
+      { name: 'password', label: 'Password', type: 'text' },
+      {
+        name: 'rol',
+        label: 'Rol',
+        type: 'select',
+        options: [
+          { value: 'ADMIN', label: 'ADMIN' },
+          { value: 'DOCENTE', label: 'DOCENTE' },
+          { value: 'DIRECTIVO', label: 'DIRECTIVO' }
+        ]
+      },
+      { name: 'activo', label: 'Activo', type: 'checkbox' }
+    ],
+    columns: [
+      { key: 'id', label: 'ID' },
+      { key: 'username', label: 'Username' },
+      { key: 'rol', label: 'Rol' },
+      { key: 'activo', label: 'Activo', render: (r) => (r.activo ? 'SI' : 'NO') }
+    ]
+  }
+};
+
+const simpleCrudState = {};
+
+function renderCrudFilters(key, filters) {
+  const wrap = document.getElementById(`${key}Filters`);
+  if (!wrap) return;
+  if (!filters || filters.length === 0) {
+    wrap.innerHTML = '';
+    return;
+  }
+
+  wrap.innerHTML = filters
+    .map((f) => {
+      const id = `${key}Filter_${f.name}`;
+      if (f.type === 'select') {
+        const opts = (f.options || []).map((o) => `<option value="${o.value}">${o.label}</option>`).join('');
+        return `<div><label>${f.label}</label><select id="${id}">${opts}</select></div>`;
+      }
+      return `<div><label>${f.label}</label><input id="${id}" type="${f.type || 'text'}" placeholder="${f.placeholder || ''}" /></div>`;
+    })
+    .join('');
+}
+
+function getCrudFilterQuery(key, filters) {
+  const out = {};
+  (filters || []).forEach((f) => {
+    const id = `${key}Filter_${f.name}`;
+    const el = document.getElementById(id);
+    if (!el) return;
+    const value = el.value;
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      out[f.name] = value;
+    }
+  });
+  return out;
+}
+
+function buildFieldDefs(key, fields) {
+  return (fields || []).map((f) => ({ ...f, domId: `${key}Field_${f.name}` }));
+}
+
+function getFieldValue(field, domId) {
+  const el = document.getElementById(domId);
+  if (!el) return undefined;
+  if (field.type === 'checkbox') return Boolean(el.checked);
+  if (field.type === 'number') return el.value === '' ? undefined : Number(el.value);
+  return el.value;
+}
+
+function readCrudPayload(key, fields) {
+  const payload = {};
+  fields.forEach((f) => {
+    payload[f.name] = getFieldValue(f, `${key}Field_${f.name}`);
+  });
+  return payload;
+}
+
+function renderCrudForm(key, cfg) {
+  const wrap = document.getElementById(`${key}Form`);
+  if (!wrap) return;
+  const st = simpleCrudState[key] || { editingId: null, editingRow: null };
+  const values = st.editingRow || {};
+  const defs = buildFieldDefs(key, cfg.fields || []);
+  wrap.innerHTML = entityForm({ fields: defs, values });
+}
+
+function renderCrudTable(key, cfg) {
+  const wrap = document.getElementById(`${key}Table`);
+  if (!wrap) return;
+  const rows = simpleCrudState[key]?.rows || [];
+  wrap.innerHTML = entityTable({ columns: cfg.columns || [], rows, rowActions: true });
+
+  wrap.querySelectorAll('[data-edit]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = Number(btn.getAttribute('data-edit'));
+      const row = rows.find((r) => r.id === id);
+      simpleCrudState[key].editingId = id;
+      simpleCrudState[key].editingRow = row || null;
+      renderCrudForm(key, cfg);
+      setStatus(`${key}FormStatus`, `Editando ID ${id}.`, 'warn');
+    });
+  });
+
+  wrap.querySelectorAll('[data-del]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = Number(btn.getAttribute('data-del'));
+      try {
+        if (cfg.onDelete) {
+          await cfg.onDelete(id);
+        } else {
+          await crudService.remove(cfg.endpoint, id);
+        }
+        await loadSimpleCrudRows(key, cfg);
+        setStatus(`${key}Status`, `Eliminado ID ${id}.`, 'ok');
+      } catch (e) {
+        setStatus(`${key}Status`, e.message, 'bad');
+      }
+    });
+  });
+}
+
+async function loadSimpleCrudRows(key, cfg) {
+  const rawFilters = getCrudFilterQuery(key, cfg.filters);
+  const query = cfg.buildQuery ? cfg.buildQuery(rawFilters) : rawFilters;
+  const out = await crudService.list(cfg.endpoint, query);
+  let rows = out.data || [];
+  if (cfg.clientFilter) {
+    rows = cfg.clientFilter(rows, rawFilters);
+  }
+  simpleCrudState[key].rows = rows;
+  renderCrudTable(key, cfg);
+  renderCrudForm(key, cfg);
+}
+
+async function initSimpleCrudPage(key) {
+  const cfg = simpleCrudConfigs[key];
+  if (!cfg) return;
+
+  if (!simpleCrudState[key]) {
+    simpleCrudState[key] = { rows: [], editingId: null, editingRow: null };
+  }
+
+  renderCrudFilters(key, cfg.filters || []);
+  renderCrudForm(key, cfg);
+
+  document.getElementById(`${key}Buscar`)?.addEventListener('click', async () => {
+    try {
+      await loadSimpleCrudRows(key, cfg);
+      setStatus(`${key}Status`, `Registros cargados: ${simpleCrudState[key].rows.length}.`, 'ok');
+    } catch (e) {
+      setStatus(`${key}Status`, e.message, 'bad');
+    }
+  });
+  document.getElementById(`${key}Clear`)?.addEventListener('click', async () => {
+    (cfg.filters || []).forEach((f) => {
+      const el = document.getElementById(`${key}Filter_${f.name}`);
+      if (!el) return;
+      if (f.type === 'checkbox') {
+        el.checked = false;
+      } else if (f.type === 'select') {
+        el.selectedIndex = 0;
+      } else {
+        el.value = '';
+      }
+    });
+    try {
+      await loadSimpleCrudRows(key, cfg);
+      setStatus(`${key}Status`, 'Filtros limpiados.', 'ok');
+    } catch (e) {
+      setStatus(`${key}Status`, e.message, 'bad');
+    }
+  });
+
+  document.getElementById(`${key}Nuevo`)?.addEventListener('click', () => {
+    simpleCrudState[key].editingId = null;
+    simpleCrudState[key].editingRow = null;
+    renderCrudForm(key, cfg);
+    setStatus(`${key}FormStatus`, 'Modo alta.', 'ok');
+  });
+
+  document.getElementById(`${key}Cancelar`)?.addEventListener('click', () => {
+    simpleCrudState[key].editingId = null;
+    simpleCrudState[key].editingRow = null;
+    renderCrudForm(key, cfg);
+    setStatus(`${key}FormStatus`, 'Edicion cancelada.', 'warn');
+  });
+
+  document.getElementById(`${key}Guardar`)?.addEventListener('click', async () => {
+    try {
+      const payload = readCrudPayload(key, cfg.fields || []);
+      const currentId = simpleCrudState[key].editingId;
+      const currentRow = simpleCrudState[key].editingRow;
+
+      if (currentId) {
+        if (cfg.onUpdate) {
+          await cfg.onUpdate(currentId, payload, currentRow);
+        } else {
+          await crudService.update(cfg.endpoint, currentId, payload);
+        }
+        setStatus(`${key}FormStatus`, `Actualizado ID ${currentId}.`, 'ok');
+      } else {
+        if (cfg.onCreate) {
+          await cfg.onCreate(payload);
+        } else {
+          await crudService.create(cfg.endpoint, payload);
+        }
+        setStatus(`${key}FormStatus`, 'Creado correctamente.', 'ok');
+      }
+
+      simpleCrudState[key].editingId = null;
+      simpleCrudState[key].editingRow = null;
+      await loadSimpleCrudRows(key, cfg);
+    } catch (e) {
+      setStatus(`${key}FormStatus`, e.message, 'bad');
+    }
+  });
+
+  await loadSimpleCrudRows(key, cfg);
+}
+
 async function bindViewActions(view) {
   if (view === 'dashboard') {
     document
@@ -550,29 +1015,69 @@ async function bindViewActions(view) {
     await bindCalificacionesActions();
   }
 
+  if (view === 'anios') {
+    await initSimpleCrudPage('aniosCrud');
+  }
+
+  if (view === 'materiasCrud') {
+    await initSimpleCrudPage('materiasCrud');
+  }
+
+  if (view === 'usuarios') {
+    await initSimpleCrudPage('usuariosCrud');
+  }
+
+  if (view === 'cursos') {
+    await initSimpleCrudPage('cursosCrud');
+  }
+
+  if (view === 'alumnos') {
+    await initSimpleCrudPage('alumnosCrud');
+  }
+
   if (view === 'asistencia') {
-    document.getElementById('asiBuscar')?.addEventListener('click', async () => {
-      const st = document.getElementById('asiStatus');
+    const fechaHoy = new Date().toISOString().slice(0, 10);
+    const fechaInput = document.getElementById('asiFecha');
+    if (fechaInput && !fechaInput.value) fechaInput.value = fechaHoy;
+
+    const loadCursosSafe = async () => {
       try {
-        const q = { cursoId: document.getElementById('asiCurso').value.trim(), fecha: document.getElementById('asiFecha').value };
-        const data = await asistenciaService.getContexto(q);
-        document.getElementById('asiResult').textContent = JSON.stringify(data, null, 2);
-        st.className = 'status ok';
-        st.textContent = 'Contexto listo';
+        await loadAsistenciaCursos();
+        setStatus('asiStatus', 'Cursos cargados.', 'ok');
       } catch (e) {
-        st.className = 'status bad';
-        st.textContent = `Asistencia: ${e.message}`;
+        setStatus('asiStatus', `Asistencia: ${e.message}`, 'bad');
+      }
+    };
+
+    await loadCursosSafe();
+
+    document.getElementById('asiCargarCursos')?.addEventListener('click', loadCursosSafe);
+    document.getElementById('asiBuscar')?.addEventListener('click', async () => {
+      try {
+        await loadAsistenciaContexto();
+        setStatus('asiStatus', `Lista cargada (${asiState.rows.length} alumnos).`, 'ok');
+      } catch (e) {
+        setStatus('asiStatus', `Asistencia: ${e.message}`, 'bad');
       }
     });
     document.getElementById('asiTodos')?.addEventListener('click', () => {
-      const st = document.getElementById('asiStatus');
-      st.className = 'status warn';
-      st.textContent = 'Pendiente: marcar todos presentes sobre lista cargada';
+      if (!asiState.rows.length) {
+        setStatus('asiStatus', 'Primero carga la lista.', 'warn');
+        return;
+      }
+      asiState.rows.forEach((row) => {
+        row.presente = true;
+      });
+      renderAsistenciaGrid();
+      setStatus('asiStatus', 'Todos marcados como presentes.', 'ok');
     });
-    document.getElementById('asiGuardar')?.addEventListener('click', () => {
-      const st = document.getElementById('asiStatus');
-      st.className = 'status warn';
-      st.textContent = 'Pendiente: guardado sobre seleccion actual';
+    document.getElementById('asiGuardar')?.addEventListener('click', async () => {
+      try {
+        await saveAsistencia();
+        setStatus('asiStatus', `Asistencia guardada (${asiState.rows.length} registros).`, 'ok');
+      } catch (e) {
+        setStatus('asiStatus', `Asistencia: ${e.message}`, 'bad');
+      }
     });
   }
 }
@@ -598,3 +1103,10 @@ function render() {
 }
 
 render();
+
+
+
+
+
+
+
