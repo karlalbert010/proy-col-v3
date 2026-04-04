@@ -7,6 +7,11 @@ const port = process.env.PORT || 3000;
 const dbMaxRetries = Number(process.env.DB_CONNECT_RETRIES || 10);
 const dbRetryDelayMs = Number(process.env.DB_CONNECT_RETRY_DELAY_MS || 3000);
 
+if (!process.env.JWT_SECRET || String(process.env.JWT_SECRET).trim().length < 10) {
+  console.error('JWT_SECRET faltante o invalido. Defina JWT_SECRET en .env.');
+  process.exit(1);
+}
+
 async function connectDatabaseWithRetry() {
   for (let attempt = 1; attempt <= dbMaxRetries; attempt += 1) {
     try {

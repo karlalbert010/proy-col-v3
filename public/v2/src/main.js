@@ -1,5 +1,5 @@
 ﻿import { store } from './store/index.js';
-import { login } from './services/auth.service.js';
+import { login, me } from './services/auth.service.js';
 import { renderView } from './router/index.js';
 import { calificacionesService } from './services/calificaciones.service.js';
 import { asistenciaService } from './services/asistencia.service.js';
@@ -43,11 +43,34 @@ function shell(content) {
 }
 
 function loginScreen() {
-  app.innerHTML = `<div class="login-wrap"><div class="login-card"><h2>Ingreso</h2><div class="grid two"><div><label>Usuario</label><input id="lUser" value="admin" /></div><div><label>Clave</label><input id="lPass" type="password" value="admin123" /></div></div><div class="actions" style="margin-top:10px"><button id="lBtn" class="primary">Entrar</button></div><p id="lStatus" class="status"></p></div></div>`;
-  document.getElementById('lBtn').addEventListener('click', async () => {
-    const st = document.getElementById('lStatus');
+  app.innerHTML = `<div class="login-wrap"><div class="login-card"><h2>Ingreso</h2><form id="loginForm"><div class="grid two"><div><label>Usuario</label><input id="lUser" value="admin" autocomplete="username" /></div><div><label>Clave</label><input id="lPass" type="password" value="admin123" autocomplete="current-password" /><label style="display:flex;align-items:center;gap:6px;margin-top:6px"><input id="lShowPass" type="checkbox" /> Mostrar clave</label></div></div><div class="actions" style="margin-top:10px"><button id="lBtn" class="primary" type="submit">Entrar</button></div></form><p id="lStatus" class="status"></p></div></div>`;
+
+  const form = document.getElementById('loginForm');
+  const userInput = document.getElementById('lUser');
+  const passInput = document.getElementById('lPass');
+  const showPass = document.getElementById('lShowPass');
+  const btn = document.getElementById('lBtn');
+  const st = document.getElementById('lStatus');
+  let submitting = false;
+
+  const doLogin = async () => {
+    if (submitting) return;
+    const username = userInput.value.trim();
+    const password = passInput.value;
+
+    st.className = 'status';
+    st.textContent = '';
+
+    if (!username || !password) {
+      st.className = 'status bad';
+      st.textContent = 'Ingresa usuario y clave.';
+      return;
+    }
+
+    submitting = true;
+    btn.disabled = true;
     try {
-      const out = await login(document.getElementById('lUser').value.trim(), document.getElementById('lPass').value);
+      const out = await login(username, password);
       if (!out.token) throw new Error('Login sin token');
       store.setToken(out.token);
       store.setUser(out.user || null);
@@ -57,8 +80,27 @@ function loginScreen() {
       render();
     } catch (e) {
       st.className = 'status bad';
-      st.textContent = e.message;
+      const message = String(e?.message || '').trim();
+      st.textContent = message || 'Usuario o clave incorrectos.';
+    } finally {
+      submitting = false;
+      btn.disabled = false;
     }
+  };
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    await doLogin();
+  });
+
+  form.addEventListener('keydown', async (event) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    await doLogin();
+  });
+
+  showPass.addEventListener('change', () => {
+    passInput.type = showPass.checked ? 'text' : 'password';
   });
 }
 
@@ -1102,7 +1144,29 @@ function render() {
   bindViewActions(store.get().view);
 }
 
-render();
+async function bootstrapSession() {
+  const token = store.get().token;
+  if (!token) {
+    render();
+    return;
+  }
+
+  try {
+    const user = await me();
+    store.setUser(user);
+    render();
+  } catch (_error) {
+    store.setToken('');
+    store.setUser(null);
+    loginScreen();
+  }
+}
+
+window.addEventListener('auth:expired', () => {
+  loginScreen();
+});
+
+bootstrapSession();
 
 
 

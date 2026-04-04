@@ -27,9 +27,35 @@ async function login({ username, password }) {
     expiresIn: process.env.JWT_EXPIRES_IN || '8h'
   });
 
-  return token;
+  return {
+    token,
+    user: {
+      id: user.id,
+      username: user.username,
+      rol: user.rol
+    }
+  };
+}
+
+async function getMe(userId) {
+  const user = await prisma.usuario.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      username: true,
+      rol: true,
+      activo: true
+    }
+  });
+
+  if (!user || !user.activo) {
+    return null;
+  }
+
+  return user;
 }
 
 module.exports = {
-  login
+  login,
+  getMe
 };
